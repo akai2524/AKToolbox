@@ -1,16 +1,19 @@
 package dev.ak.toolbox;
 
 import android.app.Activity;
-import android.content.Context;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
+import android.net.Uri;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
@@ -23,18 +26,25 @@ import android.widget.Toast;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import dev.ak.toolbox.core.RootAccessCheck;
 import dev.ak.toolbox.payment.PaymentSession;
 
 public final class MainActivity extends Activity {
+    private static final ExecutorService ROOT_CHECK = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "AK-root-check"); t.setDaemon(true); return t;
+    });
     private int background, surface, ink, muted, accent, soft;
     private LinearLayout body;
-    private TextView connection, state, explanation, message;
-    private Button toggle, restart;
+    private TextView connection, rootStatus, state, explanation, message, paymentStatus;
+    private Button toggle, restart, paymentRetry;
     private final Map<String, Switch> options = new HashMap<>();
-    private boolean rendering, connected, busy, restarting;
+    private boolean rendering, connected, busy, restarting, paymentBusy;
+    private boolean rootNoticeOpen, rootReady;
+    private int rootCheckSequence;
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
-        autoConfigureBatteryAndAutostart(this);
         boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
             == Configuration.UI_MODE_NIGHT_YES;
         background = Color.parseColor(dark ? "#111318" : "#F5F6F8");
@@ -65,6 +75,9 @@ public final class MainActivity extends Activity {
         connection.setBackground(round(soft, 16));
         connection.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         body.addView(connection, spaced(0, 0, 0, 16));
+        rootStatus = text("Root 权限：正在检查", 13, muted);
+        rootStatus.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        body.addView(rootStatus, spaced(4, 0, 4, 16));
 
         LinearLayout gapps = card();
         gapps.addView(text("Google服务", 25, ink), spaced(18, 17, 18, 3));
@@ -84,9 +97,22 @@ public final class MainActivity extends Activity {
         section("背屏付款码");
         LinearLayout payment = card();
         option(payment, Options.REAR_PAYMENT, "打开微信或支付宝付款码时显示二维码和条形码，退出后自动隐藏");
-        TextView paymentHelp = text("需要 Root 权限。已通过 Root 自动优化后台电池与自启动策略，并在 LSPosed 勾选微信与支付宝后重启这两个应用。付款码只在本机显示，不保存图片。", 12, muted);
+        TextView paymentHelp = text("需要 Root，并在 LSPosed 勾选微信与支付宝后重启这两个应用。付款码只在本机显示，不保存图片。", 12, muted);
         paymentHelp.setLineSpacing(dp(3), 1f);
-        payment.addView(paymentHelp, spaced(18, 0, 18, 16));
+        payment.addView(paymentHelp, spaced(18, 0, 18, 6));
+        paymentStatus = text("上次检查：" + BackgroundPolicy.lastStatus(this), 12, muted);
+        paymentStatus.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        payment.addView(paymentStatus, spaced(18, 0, 18, 6));
+        paymentRetry = button("检查或重试后台策略", false);
+        paymentRetry.setEnabled(false);
+        paymentRetry.setOnClickListener(v -> applyPaymentPolicy(options.get(Options.REAR_PAYMENT).isChecked()));
+        payment.addView(paymentRetry, spaced(14, 0, 14, 4));
+        Button batterySettings = button("打开应用设置", false);
+        batterySettings.setOnClickListener(v -> {
+            try { startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))); }
+            catch (RuntimeException error) { toast("无法打开应用设置，请在系统设置中查找 AK工具箱"); }
+        });
+        payment.addView(batterySettings, spaced(14, 0, 14, 12));
         body.addView(payment, spaced(0, 0, 0, 22));
 
         section("输入法");
@@ -124,13 +150,50 @@ public final class MainActivity extends Activity {
         Button manager = button("打开 LSPosed", false);
         manager.setOnClickListener(v -> openManager());
         body.addView(manager, spaced(0, 0, 0, 12));
+        Button rootManager = button("打开 Root 管理器", false);
+        rootManager.setOnClickListener(v -> openRootManager());
+        body.addView(rootManager, spaced(0, 0, 0, 12));
         TextView footer = text("首次启用或修改作用域后需重启手机。卸载前可先开启 Google服务，恢复核心服务原状态。", 12, muted);
         footer.setLineSpacing(dp(4), 1f);
         body.addView(footer, spaced(4, 0, 4, 0));
     }
     @Override protected void onResume() {
         super.onResume();
-        if (!restarting) BridgeClient.send(this, BridgeClient.QUERY, null, this::showResult);
+        checkRootAccess();
+        if (!paymentBusy) paymentStatus.setText("上次检查：" + BackgroundPolicy.lastStatus(this));
+        if (!restarting) BridgeClient.send(this, BridgeClient.QUERY, null, result -> {
+            showResult(result);
+            maybeInitializePaymentPolicy();
+        });
+    }
+    private void checkRootAccess() {
+        int request = ++rootCheckSequence;
+        rootReady = false;
+        rootStatus.setText("Root 权限：正在检查");
+        ROOT_CHECK.execute(() -> {
+            RootAccessCheck.Result result = RootAccessCheck.check(new String[] { "su", "-c", "id -u" }, 4000);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed() || request != rootCheckSequence) return;
+                rootReady = result == RootAccessCheck.Result.GRANTED;
+                rootStatus.setText(switch (result) {
+                    case GRANTED -> "Root 权限：已授权";
+                    case NOT_GRANTED -> "Root 权限：未授权";
+                    case UNKNOWN -> "Root 权限：暂时无法确认，请在 Root 管理器中检查";
+                });
+                if (result == RootAccessCheck.Result.NOT_GRANTED && !rootNoticeOpen) showRootReminder();
+                if (rootReady) maybeInitializePaymentPolicy();
+            });
+        });
+    }
+    private void maybeInitializePaymentPolicy() {
+        if (isFinishing() || isDestroyed() || rootNoticeOpen || !rootReady || !connected || paymentBusy
+                || restarting || !options.get(Options.REAR_PAYMENT).isChecked()) return;
+        if (BackgroundPolicy.ensureInitialized(this, this::finishPaymentPolicy)) {
+            paymentBusy = true;
+            options.get(Options.REAR_PAYMENT).setEnabled(false);
+            paymentRetry.setEnabled(false);
+            paymentStatus.setText("正在检查已开启的付款码后台策略…");
+        }
     }
     private void option(LinearLayout group, String key, String description) {
         Switch control = row(group, Options.LABELS.get(key), description, Options.enabled(this, key));
@@ -138,6 +201,30 @@ public final class MainActivity extends Activity {
         control.setEnabled(false);
         control.setOnCheckedChangeListener((v, checked) -> {
             if (rendering || !connected) return;
+            if (Options.REAR_PAYMENT.equals(key)) {
+                paymentBusy = true;
+                control.setEnabled(false);
+                paymentRetry.setEnabled(false);
+                BridgeClient.send(this, BridgeClient.SET_OPTION,
+                    new Intent().putExtra("key", key).putExtra("value", checked), result -> {
+                        if (isFinishing() || isDestroyed()) {
+                            paymentBusy = false;
+                            if (result.getBooleanExtra("connected", false) && !result.hasExtra("error")
+                                    && result.getBooleanExtra(key, !checked) == checked)
+                                BackgroundPolicy.change(getApplicationContext(), checked, ignored -> { });
+                            return;
+                        }
+                        showResult(result);
+                        if (result.getBooleanExtra("connected", false) && !result.hasExtra("error")
+                                && result.getBooleanExtra(key, !checked) == checked) {
+                            applyPaymentPolicy(checked);
+                        } else {
+                            paymentBusy = false;
+                            showResult(result);
+                        }
+                    });
+                return;
+            }
             BridgeClient.send(this, BridgeClient.SET_OPTION,
                 new Intent().putExtra("key", key).putExtra("value", checked), this::showResult);
         });
@@ -160,14 +247,30 @@ public final class MainActivity extends Activity {
             : "关闭核心 Google 服务与商店，开启时恢复原状态。");
         rendering = true;
         for (Map.Entry<String, Switch> entry : options.entrySet()) {
-            entry.getValue().setEnabled(connected && !restarting);
+            entry.getValue().setEnabled(connected && !restarting && !(paymentBusy && Options.REAR_PAYMENT.equals(entry.getKey())));
             if (connected) entry.getValue().setChecked(result.getBooleanExtra(entry.getKey(), !Options.REAR_PAYMENT.equals(entry.getKey())));
         }
         if (connected && !result.getBooleanExtra(Options.REAR_PAYMENT, false)) PaymentSession.stopAll();
         options.get(Options.CITY).setEnabled(connected && !restarting && options.get(Options.WEATHER).isChecked());
+        paymentRetry.setEnabled(connected && !restarting && !paymentBusy);
         rendering = false;
         String error = result.getStringExtra("error");
         message.setText(error != null ? error : "设置已同步。界面设置若未更新，可点击重启系统界面。");
+    }
+    private void applyPaymentPolicy(boolean enabled) {
+        if (!connected || restarting) return;
+        paymentBusy = true;
+        options.get(Options.REAR_PAYMENT).setEnabled(false);
+        paymentRetry.setEnabled(false);
+        paymentStatus.setText(enabled ? "正在检查后台策略…" : "正在恢复后台策略…");
+        BackgroundPolicy.change(this, enabled, this::finishPaymentPolicy);
+    }
+    private void finishPaymentPolicy(dev.ak.toolbox.core.BackgroundPolicyController.Result result) {
+        paymentBusy = false;
+        if (isFinishing() || isDestroyed()) return;
+        paymentStatus.setText(result.message());
+        options.get(Options.REAR_PAYMENT).setEnabled(connected && !restarting);
+        paymentRetry.setEnabled(connected && !restarting);
     }
     private void toggleGapps() {
         if (!connected || busy || restarting) return;
@@ -214,6 +317,75 @@ public final class MainActivity extends Activity {
         Intent intent = getPackageManager().getLaunchIntentForPackage("org.lsposed.manager");
         if (intent == null) toast("请从 LSPosed 通知或桌面快捷方式打开管理器");
         else startActivity(intent);
+    }
+    private void showRootReminder() {
+        rootNoticeOpen = true;
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(22), dp(22), dp(22), dp(18));
+        panel.setBackground(round(surface, 24));
+
+        TextView category = text("权限设置", 12, accent);
+        category.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        category.setPadding(dp(10), dp(4), dp(10), dp(4));
+        category.setBackground(round(soft, 9));
+        LinearLayout.LayoutParams categoryLayout = new LinearLayout.LayoutParams(-2, -2);
+        categoryLayout.bottomMargin = dp(10);
+        panel.addView(category, categoryLayout);
+        TextView title = text("请手动授予 Root 权限", 21, ink);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        panel.addView(title, spaced(0, 0, 0, 10));
+        TextView detail = text("背屏付款码和后台策略需要 Root。请在 KernelSU 或其他 Root 管理器的超级用户列表中，找到 AK工具箱并手动允许。", 14, muted);
+        detail.setLineSpacing(dp(3), 1f);
+        panel.addView(detail, spaced(0, 0, 0, 18));
+
+        Button open = rootDialogButton("打开 Root 管理器", true);
+        Button authorized = rootDialogButton("我已授权", false);
+        Button later = rootDialogButton("稍后设置", false);
+        panel.addView(open, spaced(0, 0, 0, 10));
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, -2, 1);
+        left.rightMargin = dp(5);
+        LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(0, -2, 1);
+        right.leftMargin = dp(5);
+        actions.addView(authorized, left);
+        actions.addView(later, right);
+        panel.addView(actions, new LinearLayout.LayoutParams(-1, -2));
+
+        AlertDialog dialog = new AlertDialog.Builder(this).setView(panel).create();
+        open.setOnClickListener(v -> {
+            openRootManager();
+            dialog.dismiss();
+        });
+        authorized.setOnClickListener(v -> { dialog.dismiss(); checkRootAccess(); });
+        later.setOnClickListener(v -> dialog.dismiss());
+        dialog.setOnDismissListener(ignored -> { rootNoticeOpen = false; maybeInitializePaymentPolicy(); });
+        dialog.setOnShowListener(ignored -> {
+            if (dialog.getWindow() == null) return;
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            int width = Math.min(getResources().getDisplayMetrics().widthPixels - dp(40), dp(420));
+            dialog.getWindow().setLayout(width, -2);
+        });
+        dialog.show();
+    }
+    private Button rootDialogButton(String label, boolean primary) {
+        Button control = button(label, primary);
+        control.setBackgroundTintList(null);
+        control.setBackground(round(primary ? accent : soft, 14));
+        control.setStateListAnimator(null);
+        control.setElevation(0);
+        return control;
+    }
+    private boolean openRootManager() {
+        for (String pkg : new String[] { "me.weishu.kernelsu", "com.topjohnwu.magisk", "me.bmax.apatch" }) {
+            Intent intent = getPackageManager().getLaunchIntentForPackage(pkg);
+            if (intent == null) continue;
+            try { startActivity(intent); return true; }
+            catch (RuntimeException ignored) { }
+        }
+        toast("未找到常见 Root 管理器，请手动打开你使用的 Root 管理器");
+        return false;
     }
     private void section(String title) {
         TextView heading = text(title, 14, muted);
@@ -278,21 +450,6 @@ public final class MainActivity extends Activity {
     }
     private int dp(float value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private void toast(String value) { Toast.makeText(this, value, Toast.LENGTH_LONG).show(); }
-
-    public static void autoConfigureBatteryAndAutostart(Context context) {
-        String pkg = context.getPackageName();
-        new Thread(() -> {
-            try {
-                String cmd = "dumpsys deviceidle whitelist +" + pkg + "\n"
-                        + "cmd appops set " + pkg + " RUN_IN_BACKGROUND allow\n"
-                        + "cmd appops set " + pkg + " RUN_ANY_IN_BACKGROUND allow\n"
-                        + "cmd appops set " + pkg + " 10008 allow\n"
-                        + "content insert --uri content://com.miui.powerkeeper.configure/userTable --bind userId:i:0 --bind pkgName:s:" + pkg + " --bind bgControl:s:noRestrict\n";
-                Process p = new ProcessBuilder("su", "-c", cmd).start();
-                p.waitFor();
-            } catch (Throwable ignored) { }
-        }, "AK-battery-opt").start();
-    }
 
     private static String getDeviceModel() {
         String market = getProp("ro.product.marketname");

@@ -3,8 +3,6 @@ package dev.ak.toolbox.payment;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.util.Log;
@@ -32,7 +30,7 @@ public final class RearPaymentActivity extends Activity {
             | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
         getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         content = new View(this) {
-            final Paint paint = new Paint();
+            final PaymentRenderer renderer = new PaymentRenderer();
             boolean geometryReported;
             @Override protected void onDraw(Canvas canvas) {
                 super.onDraw(canvas);
@@ -50,22 +48,7 @@ public final class RearPaymentActivity extends Activity {
                 int width = right - left, height = bottom - top;
                 if (!geometryReported) { geometryReported = true; Log.i("AKRearPayment", "rear safe area=" + width + "x" + height); }
                 if (width < 120 || height < 160) return;
-                canvas.drawColor(Color.WHITE);
-                paint.setFilterBitmap(false);
-                int margin = Math.max(8, Math.min(width, height) / 60);
-                int availableWidth = width - margin * 2;
-                float barScale = Math.min((float) availableWidth / barcode.getWidth(), (height * 0.25f) / barcode.getHeight());
-                int barWidth = Math.max(1, Math.round(barcode.getWidth() * barScale));
-                int barHeight = Math.max(1, Math.round(barcode.getHeight() * barScale));
-                int xBar = left + (width - barWidth) / 2, yBar = top + margin;
-                canvas.drawBitmap(barcode, null, new Rect(xBar, yBar, xBar + barWidth, yBar + barHeight), paint);
-                int footer = Math.max(20, height / 24);
-                int qrSize = Math.max(1, Math.min(availableWidth, height - barHeight - footer - margin * 4));
-                int qx = left + (width - qrSize) / 2, qy = yBar + barHeight + margin;
-                canvas.drawBitmap(qr, null, new Rect(qx, qy, qx + qrSize, qy + qrSize), paint);
-                paint.setColor(Color.rgb(79, 88, 101)); paint.setTextAlign(Paint.Align.CENTER);
-                paint.setTextSize(Math.max(14, Math.min(20, footer * 0.72f)));
-                canvas.drawText(PaymentSession.label(), left + width / 2f, bottom - margin, paint);
+                renderer.draw(canvas, left, top, right, bottom, qr, barcode, PaymentSession.label());
             }
         };
         setContentView(content);

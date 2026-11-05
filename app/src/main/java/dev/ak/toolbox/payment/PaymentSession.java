@@ -10,7 +10,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
-import dev.ak.toolbox.MainActivity;
+import dev.ak.toolbox.BackgroundPolicy;
 import dev.ak.toolbox.Options;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
@@ -45,11 +45,11 @@ public final class PaymentSession {
     public static void start(Context context, int uid, String pkg) {
         Context app = context.getApplicationContext();
         if (!Options.enabled(app, Options.REAR_PAYMENT)) { Log.i(TAG, "feature disabled"); return; }
+        BackgroundPolicy.ensureInitialized(app, null);
         startInternal(app, uid, pkg);
     }
 
     static void startInternal(Context app, int uid, String pkg) {
-        MainActivity.autoConfigureBatteryAndAutostart(app);
         registerScreenOff(app);
         long token;
         Process old;
