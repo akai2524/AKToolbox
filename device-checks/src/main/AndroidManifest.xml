@@ -1,0 +1,22 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <queries>
+        <intent><action android:name="android.view.InputMethod" /></intent>
+        <package android:name="dev.akai.secureprobe" />
+    </queries>
+    <application android:label="工具箱实机检查" android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:allowBackup="false" android:icon="@android:drawable/ic_menu_info_details">
+        <activity android:name=".RearDisplayProbeActivity" android:exported="true" />
+        <activity android:name=".ProbeActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <receiver android:name=".SettingsProbeReceiver" android:exported="true" />
+    </application>
+    <instrumentation android:name=".ImeProbeInstrumentation"
+        android:targetPackage="dev.akai.toolbox" />
+    <instrumentation android:name=".RearPaymentSyntheticInstrumentation"
+        android:targetPackage="dev.akai.toolbox" />
+</manifest>

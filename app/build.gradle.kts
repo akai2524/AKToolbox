@@ -1,0 +1,31 @@
+plugins { id("com.android.application") }
+
+android {
+    namespace = "dev.akai.toolbox"
+    compileSdk { version = release(37) { minorApiLevel = 0 } }
+    defaultConfig {
+        applicationId = "dev.akai.toolbox"
+        minSdk = 37
+        targetSdk = 37
+        versionCode = 18
+        versionName = "0.1.17"
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    buildFeatures { buildConfig = true }
+    buildTypes {
+        release { isMinifyEnabled = false }
+    }
+}
+
+dependencies {
+    compileOnly("de.robv.android.xposed:api:82")
+    implementation("com.google.zxing:core:3.5.3")
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+}
+

@@ -1,0 +1,26 @@
+小米工具箱 0.1.17
+
+本项目部分截屏、通知中心和控制中心适配逻辑参考并改编自 HyperCeiler：
+https://github.com/ReChronoRain/HyperCeiler
+参考提交：284e33db6f57cf7481abc134eaa21c088e205179
+Copyright (C) 2023-2026 HyperCeiler Contributions
+SPDX-License-Identifier: AGPL-3.0-or-later
+
+对应规则：UnlockCopyPicture、HideStatusBarBeforeScreenshot、HideStatusBarWhenShot、
+NotificationWeather、WeatherView、HideEditButton、GmsTile、
+AutoEffectSwitchForSystem、AudioEffectControlForSystem、UnlockIme、MiuiImeSupport、
+MiuiImeInsets、InputMethodClassLoaderDispatcher。
+保留 AGPL-3.0-or-later 许可证；本工程以同一许可证提供。
+
+Xposed API 82 为编译期依赖，由设备上的 LSPosed 提供运行时实现，未打包 API 实现。
+https://github.com/rovo89/XposedBridge
+
+GApps 磁贴的 Google G 矢量路径来自 Simple Icons（CC0-1.0），已调整笔画厚度：
+https://github.com/simple-icons/simple-icons/blob/develop/icons/google.svg
+https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md
+Google 名称和标志的商标权归其权利人所有。
+
+付款码图形定位使用 ZXing Core 3.5.3（Apache-2.0）：
+https://github.com/zxing/zxing/tree/zxing-3.5.3
+原版许可和声明保存在 app/src/main/assets/licenses/zxing/。
+

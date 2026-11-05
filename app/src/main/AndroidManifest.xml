@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission android:name="dev.akai.toolbox.permission.CONTROL" android:protectionLevel="signature" />
+    <uses-permission android:name="dev.akai.toolbox.permission.CONTROL" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <queries>
+        <package android:name="org.lsposed.manager" />
+        <package android:name="com.android.systemui" />
+        <package android:name="com.google.android.gms" />
+        <package android:name="com.google.android.gsf" />
+        <package android:name="com.android.vending" />
+        <package android:name="com.miui.securitycenter" />
+        <package android:name="com.tencent.mm" />
+        <package android:name="com.eg.android.AlipayGphone" />
+    </queries>
+    <application android:label="小米工具箱" android:icon="@drawable/ic_launcher"
+        android:theme="@style/AppTheme" android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="true">
+        <meta-data android:name="xposedmodule" android:value="true" />
+        <meta-data android:name="xposeddescription" android:value="小米 17 Pro · 澎湃 4：磁贴、截屏、通知、音效与输入法" />
+        <meta-data android:name="xposedminversion" android:value="93" />
+        <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".payment.RearPaymentActivity" android:exported="true"
+            android:permission="dev.akai.toolbox.permission.CONTROL"
+            android:theme="@style/RearPaymentTheme"
+            android:excludeFromRecents="true" android:launchMode="singleTask"
+            android:taskAffinity="dev.akai.toolbox.paymentrear" />
+        <receiver android:name=".payment.PaymentPageReceiver" android:exported="true" />
+        <service android:name=".payment.PaymentCaptureService" android:exported="true"
+            android:permission="dev.akai.toolbox.permission.CONTROL"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keep the local rear-display payment code current only while the payment page is visible" />
+        </service>
+        <service android:name=".GappsTileService" android:label="Google服务" android:icon="@drawable/ic_google_g"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" android:exported="true">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+            <meta-data android:name="android.service.quicksettings.TOGGLEABLE_TILE" android:value="true" />
+        </service>
+        <receiver android:name=".BridgeResultReceiver" android:exported="false" />
+    </application>
+</manifest>
+

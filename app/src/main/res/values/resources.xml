@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="xposed_scope">
+        <item>com.android.systemui</item>
+        <item>com.miui.screenshot</item>
+        <item>com.miui.misound</item>
+        <item>com.sohu.inputmethod.sogou.xiaomi</item>
+        <item>com.tencent.wetype</item>
+        <item>com.iflytek.inputmethod</item>
+        <item>com.tencent.mm</item>
+        <item>com.eg.android.AlipayGphone</item>
+    </string-array>
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:colorAccent">#3868E8</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#F5F6F8</item>
+    </style>
+    <style name="RearPaymentTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>
+
