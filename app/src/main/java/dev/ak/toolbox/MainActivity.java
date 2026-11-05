@@ -1,6 +1,7 @@
 package dev.ak.toolbox;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
@@ -8,6 +9,7 @@ import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -18,6 +20,7 @@ import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import dev.ak.toolbox.payment.PaymentSession;
@@ -31,6 +34,7 @@ public final class MainActivity extends Activity {
     private boolean rendering, connected, busy, restarting;
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
+        autoConfigureBatteryAndAutostart(this);
         boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
             == Configuration.UI_MODE_NIGHT_YES;
         background = Color.parseColor(dark ? "#111318" : "#F5F6F8");
@@ -55,7 +59,7 @@ public final class MainActivity extends Activity {
         TextView title = text("AK工具箱", 30, ink);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         body.addView(title);
-        body.addView(text("小米 17 Pro · 澎湃 4", 14, muted), spaced(0, 5, 0, 18));
+        body.addView(text(getDeviceModel() + " · " + getOsVersion(), 14, muted), spaced(0, 5, 0, 18));
         connection = text("正在检查模块连接", 13, accent);
         connection.setPadding(dp(14), dp(10), dp(14), dp(10));
         connection.setBackground(round(soft, 16));
@@ -80,7 +84,7 @@ public final class MainActivity extends Activity {
         section("背屏付款码");
         LinearLayout payment = card();
         option(payment, Options.REAR_PAYMENT, "打开微信或支付宝付款码时显示二维码和条形码，退出后自动隐藏");
-        TextView paymentHelp = text("需要 Root、允许AK工具箱后台自启动，并在 LSPosed 勾选微信与支付宝后重启这两个应用。付款码只在本机显示，不保存图片。", 12, muted);
+        TextView paymentHelp = text("需要 Root 权限。已通过 Root 自动优化后台电池与自启动策略，并在 LSPosed 勾选微信与支付宝后重启这两个应用。付款码只在本机显示，不保存图片。", 12, muted);
         paymentHelp.setLineSpacing(dp(3), 1f);
         payment.addView(paymentHelp, spaced(18, 0, 18, 16));
         body.addView(payment, spaced(0, 0, 0, 22));
@@ -120,7 +124,7 @@ public final class MainActivity extends Activity {
         Button manager = button("打开 LSPosed", false);
         manager.setOnClickListener(v -> openManager());
         body.addView(manager, spaced(0, 0, 0, 12));
-        TextView footer = text("适配 OS4.0.5.0.XBLCNXM\n首次启用或修改作用域后需重启手机。卸载前可先开启 Google服务，恢复核心服务原状态。", 12, muted);
+        TextView footer = text("首次启用或修改作用域后需重启手机。卸载前可先开启 Google服务，恢复核心服务原状态。", 12, muted);
         footer.setLineSpacing(dp(4), 1f);
         body.addView(footer, spaced(4, 0, 4, 0));
     }
@@ -274,4 +278,52 @@ public final class MainActivity extends Activity {
     }
     private int dp(float value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private void toast(String value) { Toast.makeText(this, value, Toast.LENGTH_LONG).show(); }
+
+    public static void autoConfigureBatteryAndAutostart(Context context) {
+        String pkg = context.getPackageName();
+        new Thread(() -> {
+            try {
+                String cmd = "dumpsys deviceidle whitelist +" + pkg + "\n"
+                        + "cmd appops set " + pkg + " RUN_IN_BACKGROUND allow\n"
+                        + "cmd appops set " + pkg + " RUN_ANY_IN_BACKGROUND allow\n"
+                        + "cmd appops set " + pkg + " 10008 allow\n"
+                        + "content insert --uri content://com.miui.powerkeeper.configure/userTable --bind userId:i:0 --bind pkgName:s:" + pkg + " --bind bgControl:s:noRestrict\n";
+                Process p = new ProcessBuilder("su", "-c", cmd).start();
+                p.waitFor();
+            } catch (Throwable ignored) { }
+        }, "AK-battery-opt").start();
+    }
+
+    private static String getDeviceModel() {
+        String market = getProp("ro.product.marketname");
+        if (!market.isEmpty()) return market;
+        String model = Build.MODEL;
+        return model != null && !model.isEmpty() ? model : "小米设备";
+    }
+
+    private static String getOsVersion() {
+        String os = getProp("ro.mi.os.version.name");
+        if (!os.isEmpty()) {
+            if (os.startsWith("OS")) {
+                String ver = os.substring(2);
+                int dot = ver.indexOf('.');
+                String major = dot > 0 ? ver.substring(0, dot) : ver;
+                return "澎湃 " + major;
+            }
+            return os;
+        }
+        String miui = getProp("ro.miui.ui.version.name");
+        if (!miui.isEmpty()) return "MIUI " + miui;
+        return "Android " + Build.VERSION.RELEASE;
+    }
+
+    private static String getProp(String key) {
+        try {
+            Class<?> sp = Class.forName("android.os.SystemProperties");
+            Method get = sp.getMethod("get", String.class, String.class);
+            return (String) get.invoke(null, key, "");
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
 }

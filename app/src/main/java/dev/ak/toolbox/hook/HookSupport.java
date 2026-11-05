@@ -9,12 +9,16 @@ public final class HookSupport {
     private HookSupport() {}
     public static volatile Application systemContext;
     public static boolean supported() {
-        if (Build.VERSION.SDK_INT != 37 || !"pandora".equals(Build.DEVICE)) return false;
+        if (Build.VERSION.SDK_INT < 34) return false;
         try {
-            String build = (String) XposedHelpers.callStaticMethod(
-                Class.forName("android.os.SystemProperties"), "get", "ro.mi.os.version.incremental", "");
-            return "OS4.0.5.0.XBLCNXM".equals(build);
-        } catch (Throwable error) { return false; }
+            String os = (String) XposedHelpers.callStaticMethod(
+                Class.forName("android.os.SystemProperties"), "get", "ro.mi.os.version.name", "");
+            if (!os.isEmpty()) return true;
+            String miui = (String) XposedHelpers.callStaticMethod(
+                Class.forName("android.os.SystemProperties"), "get", "ro.miui.ui.version.name", "");
+            if (!miui.isEmpty()) return true;
+            return "pandora".equals(Build.DEVICE);
+        } catch (Throwable error) { return true; }
     }
     public static void log(String message) { XposedBridge.log("AKToolbox: " + message); }
     public static void error(String feature, Throwable error) {
