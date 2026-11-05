@@ -20,8 +20,6 @@ import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /** Owns the private capture pipe and fails closed when its page or frames disappear. */
 public final class PaymentSession {
@@ -268,11 +266,7 @@ public final class PaymentSession {
         stageLaunching = true;
         STAGE.execute(() -> {
             try {
-                root("am start -W -n dev.ak.toolbox/.payment.RearPaymentActivity");
-                // Move only after the initial window has finished launching.
-                Thread.sleep(200);
-                int task = rearTask(root("am stack list"));
-                if (task > 0) root("am display move-stack " + task + " 1");
+                root("am start -W --display 1 -n dev.ak.toolbox/.payment.RearPaymentActivity");
                 // Do not wake the rear screen until a fresh image is ready.
                 for (int i = 0; i < 20 && frameAt == 0; i++) {
                     synchronized (LOCK) { if (owner < 0) return; }
@@ -303,20 +297,5 @@ public final class PaymentSession {
         drain.join(500);
         if (p.exitValue() != 0) throw new IllegalStateException();
         return text.toString();
-    }
-
-    private static int rearTask(String listing) {
-        Pattern root = Pattern.compile("^RootTask id=(\\d+).*displayId=(\\d+).*$");
-        int id = -1, display = -1;
-        for (String line : listing.split("\\R")) {
-            Matcher matcher = root.matcher(line);
-            if (matcher.matches()) { id = Integer.parseInt(matcher.group(1)); display = Integer.parseInt(matcher.group(2)); }
-            else if (line.contains("dev.ak.toolbox/dev.ak.toolbox.payment.RearPaymentActivity")
-                    || line.contains("dev.ak.toolbox/.payment.RearPaymentActivity")) {
-                if (display == 1) return -1;
-                return id;
-            }
-        }
-        return -1;
     }
 }

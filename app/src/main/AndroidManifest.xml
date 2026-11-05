@@ -17,6 +17,7 @@
     <application android:label="AK工具箱" android:icon="@drawable/ic_launcher"
         android:theme="@style/AppTheme" android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="true">
+        <meta-data android:name="miui.rear.policy" android:value="1" />
         <meta-data android:name="xposedmodule" android:value="true" />
         <meta-data android:name="xposeddescription" android:value="小米 17 Pro · 澎湃 4：磁贴、截屏、通知、音效与输入法" />
         <meta-data android:name="xposedminversion" android:value="93" />
@@ -35,7 +36,9 @@
             android:permission="dev.ak.toolbox.permission.CONTROL"
             android:theme="@style/RearPaymentTheme"
             android:excludeFromRecents="true" android:launchMode="singleTask"
-            android:taskAffinity="dev.ak.toolbox.paymentrear" />
+            android:taskAffinity="dev.ak.toolbox.paymentrear">
+            <meta-data android:name="miui.rear.policy" android:value="1" />
+        </activity>
         <receiver android:name=".payment.PaymentPageReceiver" android:exported="true" />
         <service android:name=".payment.PaymentCaptureService" android:exported="true"
             android:permission="dev.ak.toolbox.permission.CONTROL"
