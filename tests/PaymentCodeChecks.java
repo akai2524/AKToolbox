@@ -6,7 +6,7 @@ import com.google.zxing.MultiFormatReader;
 import com.google.zxing.RGBLuminanceSource;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.common.HybridBinarizer;
-import dev.akai.toolbox.payment.CodeLocator;
+import dev.ak.toolbox.payment.CodeLocator;
 import java.util.Arrays;
 
 /** All test codes contain synthetic data and are never used for a transaction. */

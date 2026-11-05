@@ -1,6 +1,6 @@
-import dev.akai.toolbox.core.GappsController;
-import dev.akai.toolbox.core.LegacyGappsRecovery;
-import dev.akai.toolbox.core.PackageCatalog;
+import dev.ak.toolbox.core.GappsController;
+import dev.ak.toolbox.core.LegacyGappsRecovery;
+import dev.ak.toolbox.core.PackageCatalog;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;

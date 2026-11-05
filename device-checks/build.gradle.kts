@@ -1,10 +1,10 @@
 plugins { id("com.android.application") }
 
 android {
-    namespace = "dev.akai.toolbox.probe"
+    namespace = "dev.ak.toolbox.probe"
     compileSdk { version = release(37) { minorApiLevel = 0 } }
     defaultConfig {
-        applicationId = "dev.akai.toolbox.probe"
+        applicationId = "dev.ak.toolbox.probe"
         minSdk = 37
         targetSdk = 37
         versionCode = 1

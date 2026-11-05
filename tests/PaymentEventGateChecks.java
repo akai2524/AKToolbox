@@ -1,4 +1,4 @@
-import dev.akai.toolbox.payment.PaymentEventGate;
+import dev.ak.toolbox.payment.PaymentEventGate;
 
 public final class PaymentEventGateChecks {
     public static void main(String[] args) {

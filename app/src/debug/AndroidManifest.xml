@@ -1,9 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <queries><package android:name="dev.akai.secureprobe" /></queries>
+    <queries><package android:name="dev.ak.secureprobe" /></queries>
     <application>
         <activity android:name=".payment.RearStaticPatternActivity" android:exported="true"
-            android:permission="dev.akai.toolbox.permission.CONTROL"
+            android:permission="dev.ak.toolbox.permission.CONTROL"
             android:theme="@style/RearPaymentTheme" android:excludeFromRecents="true" android:launchMode="singleTask"
-            android:taskAffinity="dev.akai.toolbox.rearstatictest" />
+            android:taskAffinity="dev.ak.toolbox.rearstatictest" />
     </application>
 </manifest>

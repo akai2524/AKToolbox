@@ -1,10 +1,10 @@
 plugins { id("com.android.application") }
 
 android {
-    namespace = "dev.akai.toolbox"
+    namespace = "dev.ak.toolbox"
     compileSdk { version = release(37) { minorApiLevel = 0 } }
     defaultConfig {
-        applicationId = "dev.akai.toolbox"
+        applicationId = "dev.ak.toolbox"
         minSdk = 37
         targetSdk = 37
         versionCode = 18

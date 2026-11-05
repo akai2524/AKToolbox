@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <permission android:name="dev.akai.toolbox.permission.CONTROL" android:protectionLevel="signature" />
-    <uses-permission android:name="dev.akai.toolbox.permission.CONTROL" />
+    <permission android:name="dev.ak.toolbox.permission.CONTROL" android:protectionLevel="signature" />
+    <uses-permission android:name="dev.ak.toolbox.permission.CONTROL" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <queries>
@@ -14,7 +14,7 @@
         <package android:name="com.tencent.mm" />
         <package android:name="com.eg.android.AlipayGphone" />
     </queries>
-    <application android:label="小米工具箱" android:icon="@drawable/ic_launcher"
+    <application android:label="AK工具箱" android:icon="@drawable/ic_launcher"
         android:theme="@style/AppTheme" android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="true">
         <meta-data android:name="xposedmodule" android:value="true" />
@@ -32,13 +32,13 @@
             </intent-filter>
         </activity>
         <activity android:name=".payment.RearPaymentActivity" android:exported="true"
-            android:permission="dev.akai.toolbox.permission.CONTROL"
+            android:permission="dev.ak.toolbox.permission.CONTROL"
             android:theme="@style/RearPaymentTheme"
             android:excludeFromRecents="true" android:launchMode="singleTask"
-            android:taskAffinity="dev.akai.toolbox.paymentrear" />
+            android:taskAffinity="dev.ak.toolbox.paymentrear" />
         <receiver android:name=".payment.PaymentPageReceiver" android:exported="true" />
         <service android:name=".payment.PaymentCaptureService" android:exported="true"
-            android:permission="dev.akai.toolbox.permission.CONTROL"
+            android:permission="dev.ak.toolbox.permission.CONTROL"
             android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keep the local rear-display payment code current only while the payment page is visible" />

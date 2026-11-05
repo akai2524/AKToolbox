@@ -13,7 +13,7 @@ dependencyResolutionManagement {
         maven("https://api.xposed.info/")
     }
 }
-rootProject.name = "AkaiToolbox"
+rootProject.name = "AKToolbox"
 include(":app")
 include(":deviceChecks")
 project(":deviceChecks").projectDir = file("device-checks")
