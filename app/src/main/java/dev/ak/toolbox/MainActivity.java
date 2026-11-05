@@ -302,18 +302,12 @@ public final class MainActivity extends Activity {
     }
 
     private static String getOsVersion() {
+        String inc = getProp("ro.mi.os.version.incremental");
+        if (!inc.isEmpty()) return inc;
+        String binc = Build.VERSION.INCREMENTAL;
+        if (binc != null && !binc.isEmpty()) return binc;
         String os = getProp("ro.mi.os.version.name");
-        if (!os.isEmpty()) {
-            if (os.startsWith("OS")) {
-                String ver = os.substring(2);
-                int dot = ver.indexOf('.');
-                String major = dot > 0 ? ver.substring(0, dot) : ver;
-                return "澎湃 " + major;
-            }
-            return os;
-        }
-        String miui = getProp("ro.miui.ui.version.name");
-        if (!miui.isEmpty()) return "MIUI " + miui;
+        if (!os.isEmpty()) return os;
         return "Android " + Build.VERSION.RELEASE;
     }
 
