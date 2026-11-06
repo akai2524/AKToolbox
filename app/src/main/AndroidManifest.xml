@@ -2,8 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <permission android:name="dev.ak.toolbox.permission.CONTROL" android:protectionLevel="signature" />
     <uses-permission android:name="dev.ak.toolbox.permission.CONTROL" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <queries>
         <package android:name="org.lsposed.manager" />
         <package android:name="me.weishu.kernelsu" />
@@ -35,20 +33,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity android:name=".payment.RearPaymentActivity" android:exported="true"
-            android:permission="dev.ak.toolbox.permission.CONTROL"
-            android:theme="@style/RearPaymentTheme"
-            android:excludeFromRecents="true" android:launchMode="singleTask"
-            android:taskAffinity="dev.ak.toolbox.paymentrear">
-            <meta-data android:name="miui.rear.policy" android:value="1" />
-        </activity>
-        <receiver android:name=".payment.PaymentPageReceiver" android:exported="true" />
-        <service android:name=".payment.PaymentCaptureService" android:exported="true"
-            android:permission="dev.ak.toolbox.permission.CONTROL"
-            android:foregroundServiceType="specialUse">
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Keep the local rear-display payment code current only while the payment page is visible" />
-        </service>
         <service android:name=".GappsTileService" android:label="Google服务" android:icon="@drawable/ic_google_g"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" android:exported="true">
             <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>

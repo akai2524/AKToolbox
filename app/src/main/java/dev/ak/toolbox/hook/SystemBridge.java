@@ -102,6 +102,7 @@ public final class SystemBridge {
                         if (BridgeClient.TOGGLE.equals(command)) {
                             controller.toggle();
                         } else if (BridgeClient.ADD_GOOGLE_TILE.equals(command)) {
+                            if (!GoogleTilePlacement.installed()) throw new IllegalStateException("磁贴位置功能未就绪，请重启系统界面后重试");
                             StatusBarManager statusBar = context.getSystemService(StatusBarManager.class);
                             if (statusBar == null) throw new IllegalStateException("系统状态栏不可用");
                             Object statusBarService = XposedHelpers.callMethod(statusBar, "getService");

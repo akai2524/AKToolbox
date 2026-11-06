@@ -17,6 +17,4 @@
     </application>
     <instrumentation android:name=".ImeProbeInstrumentation"
         android:targetPackage="dev.ak.toolbox" />
-    <instrumentation android:name=".RearPaymentSyntheticInstrumentation"
-        android:targetPackage="dev.ak.toolbox" />
 </manifest>

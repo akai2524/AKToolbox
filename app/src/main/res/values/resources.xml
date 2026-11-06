@@ -9,6 +9,7 @@
         <item>com.iflytek.inputmethod</item>
         <item>com.tencent.mm</item>
         <item>com.eg.android.AlipayGphone</item>
+        <item>com.xiaomi.subscreencenter</item>
     </string-array>
     <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>

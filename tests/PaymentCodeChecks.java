@@ -65,8 +65,8 @@ public final class PaymentCodeChecks {
         int barWidth = pair.barcode().right() - pair.barcode().left(), barHeight = pair.barcode().bottom() - pair.barcode().top();
         PaymentLayout.Layout layout = PaymentLayout.calculate(safeWidth, safeHeight, barWidth, barHeight);
         if (layout == null) throw new AssertionError("背屏布局为空");
-        if (!layout.sideHeader()) throw new AssertionError("背屏未采用侧边标识布局");
-        if (safeWidth - layout.card().right() < 50 || layout.header().right() > layout.card().left())
+        if (layout.sideHeader()) throw new AssertionError("背屏标题应位于码区上方");
+        if (safeWidth - layout.card().right() < 32 || layout.header().bottom() > layout.card().top())
             throw new AssertionError("背屏右侧圆角安全距离不足或标题重叠");
         int displayedBarWidth = layout.barcode().width(), displayedBarHeight = layout.barcode().height();
         int qrSize = layout.qr().width();
@@ -78,22 +78,32 @@ public final class PaymentCodeChecks {
                 || layout.header().right() > safeWidth - 24
                 || layout.header().top() < 12)
             throw new AssertionError("码区留白或间距不足");
-        if (!"synthetic-qr-example".equals(scan(pixels, w, pair.qr(), qrSize, qrSize)))
-            throw new AssertionError("背屏尺寸下合成二维码不可读取");
-        if (!"123456789012345678".equals(scan(pixels, w, pair.barcode(), displayedBarWidth, displayedBarHeight)))
-            throw new AssertionError("背屏尺寸下合成条形码不可读取");
+        try {
+            if (!"synthetic-qr-example".equals(scan(pixels, w, pair.qr(), qrSize, qrSize)))
+                throw new AssertionError("背屏尺寸下合成二维码内容不匹配");
+        } catch (NotFoundException error) { throw new AssertionError("背屏尺寸下合成二维码不可读取：" + qrSize, error); }
+        try {
+            if (!"123456789012345678".equals(scan(pixels, w, pair.barcode(), displayedBarWidth, displayedBarHeight)))
+                throw new AssertionError("背屏尺寸下合成条形码内容不匹配");
+        } catch (NotFoundException error) {
+            throw new AssertionError("背屏尺寸下合成条形码不可读取：" + displayedBarWidth + "x" + displayedBarHeight, error);
+        }
         int[] themes = {0xff078941, 0xff1670ea};
-        int[] tints = {PaymentPalette.WECHAT, PaymentPalette.ALIPAY};
+        int[] tints = {0xffffffff, 0xffffffff};
         for (int i = 0; i < themes.length; i++) {
             int[] composed = new int[safeWidth * safeHeight];
             Arrays.fill(composed, themes[i]);
             fill(composed, safeWidth, layout.card(), tints[i]);
             copyScaled(pixels, w, pair.qr(), composed, safeWidth, layout.qr(), tints[i]);
             copyScaled(pixels, w, pair.barcode(), composed, safeWidth, layout.barcode(), tints[i]);
-            if (!"synthetic-qr-example".equals(decodeFormat(composed, safeWidth, safeHeight, BarcodeFormat.QR_CODE)))
-                throw new AssertionError("主题背景下二维码不可读取");
-            if (!"123456789012345678".equals(decodeFormat(composed, safeWidth, safeHeight, BarcodeFormat.CODE_128)))
-                throw new AssertionError("主题背景下条形码不可读取");
+            try {
+                if (!"synthetic-qr-example".equals(decodeFormat(composed, safeWidth, safeHeight, BarcodeFormat.QR_CODE)))
+                    throw new AssertionError("主题背景下二维码内容不匹配");
+            } catch (NotFoundException error) { throw new AssertionError("主题背景下二维码不可读取", error); }
+            try {
+                if (!"123456789012345678".equals(decodeFormat(composed, safeWidth, safeHeight, BarcodeFormat.CODE_128)))
+                    throw new AssertionError("主题背景下条形码内容不匹配");
+            } catch (NotFoundException error) { throw new AssertionError("主题背景下条形码不可读取", error); }
         }
         if (PaymentPalette.tintPixel(0xff000000, PaymentPalette.WECHAT) != 0xff000000
                 || PaymentPalette.tintPixel(0xffffffff, PaymentPalette.WECHAT) != PaymentPalette.WECHAT

@@ -11,52 +11,35 @@ public final class PaymentLayout {
 
     public static Layout calculate(int width, int height, int barcodeWidth, int barcodeHeight) {
         if (width < 120 || height < 160 || barcodeWidth <= 0 || barcodeHeight <= 0) return null;
-        int margin = Math.max(6, Math.min(width, height) / 55);
-        int gap = Math.max(5, margin * 3 / 4);
-        boolean sideHeader = width >= 260 && height >= 280;
-        Box header, card;
-        if (sideHeader) {
-            int railWidth = Math.max(68, Math.min(140, width * 23 / 100));
-            int originalLeft = margin + railWidth;
-            // The physical rear screen has large right-side rounded corners. Move the
-            // entire card inwards while retaining enough room for the source label.
-            int cornerInset = Math.max(28, Math.min(50, Math.min(width, height) / 11));
-            int minLeft = margin + 10 + 64 + gap;
-            int cardLeft = Math.max(minLeft, originalLeft - (cornerInset - 4));
-            int cardTop = margin + 4;
-            card = new Box(cardLeft, cardTop, width - margin - cornerInset, height - margin - 4);
-            header = new Box(margin + 10, margin + Math.max(28, Math.min(52, height / 12)),
-                cardLeft - gap, card.bottom());
-        } else {
-            int headerHeight = Math.max(27, Math.min(48, height / 12));
-            int rightInset = Math.max(20, Math.min(34, width / 18));
-            header = new Box(margin + 8, margin + 6, width - margin - rightInset, margin + headerHeight);
-            int cardTop = margin + headerHeight + gap;
-            int cardHeight = height - margin - cardTop;
-            int availableWidth = width - 2 * margin;
-            int cardWidth = Math.min(availableWidth, Math.max(availableWidth * 84 / 100, cardHeight * 95 / 100));
-            int cardLeft = (width - cardWidth) / 2;
-            card = new Box(cardLeft, cardTop, cardLeft + cardWidth, height - margin);
-        }
+        int margin = Math.max(5, Math.min(19, Math.min(width, height) / 30));
+        int gap = Math.max(4, Math.min(10, margin / 2));
+        int cornerInset = Math.max(8, Math.min(34, width / 18));
+        int headerTop = Math.max(6, Math.min(24, height / 24));
+        int headerHeight = Math.max(20, Math.min(60, height / 9));
+        Box header = new Box(margin + 6, headerTop, width - margin - cornerInset, headerTop + headerHeight);
+        Box card = new Box(margin, header.bottom() + gap, width - margin - cornerInset, height - margin);
         int cardHeight = card.height(), cardWidth = card.width();
         if (cardHeight < 70 || cardWidth < 60 || header.width() < 20) return null;
-        int pad = Math.max(8, Math.min(16, cardWidth / 28));
-        int barSlotHeight = Math.max(30, Math.min(sideHeader ? 150 : 136,
-            sideHeader ? cardHeight * 30 / 100 : cardHeight / 4));
+        int pad = Math.max(6, Math.min(24, cardWidth / 24));
+        int barSlotHeight = Math.max(24, Math.min(100, cardHeight / 5));
         int barPad = Math.max(6, Math.min(10, barSlotHeight / 10));
         int contentWidth = card.width() - 2 * pad, contentHeight = barSlotHeight - 2 * barPad;
         if (contentWidth <= 0 || contentHeight <= 0) return null;
-        float scale = Math.min((float) contentWidth / barcodeWidth, (float) contentHeight / barcodeHeight);
-        int bw = Math.max(1, (int) Math.floor(barcodeWidth * scale));
-        int bh = Math.max(1, (int) Math.floor(barcodeHeight * scale));
+        // A 1D code carries information horizontally. Use the full available width
+        // while fitting its height independently so narrow bars remain scannable.
+        int bw = contentWidth;
+        int bh = Math.max(1, Math.min(contentHeight,
+            (int) Math.floor((double) barcodeHeight * contentWidth / barcodeWidth)));
         int bx = card.left() + (card.width() - bw) / 2;
         int by = card.top() + pad + (barSlotHeight - bh) / 2;
         Box bar = new Box(bx, by, bx + bw, by + bh);
-        int qrTop = card.top() + pad + barSlotHeight + gap;
-        int qrSize = Math.min(contentWidth, card.bottom() - pad - qrTop);
+        int qrTop = Math.max(bar.bottom() + 6,
+            card.top() + pad + barSlotHeight - Math.min(14, barPad + gap));
+        int bottomPad = Math.max(6, Math.min(8, pad));
+        int qrSize = Math.min(contentWidth, card.bottom() - bottomPad - qrTop);
         if (qrSize < 24) return null;
         int qrLeft = card.left() + (card.width() - qrSize) / 2;
         Box qr = new Box(qrLeft, qrTop, qrLeft + qrSize, qrTop + qrSize);
-        return new Layout(header, card, bar, qr, sideHeader);
+        return new Layout(header, card, bar, qr, false);
     }
 }

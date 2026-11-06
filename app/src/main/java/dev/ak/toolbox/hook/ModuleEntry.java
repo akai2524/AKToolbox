@@ -32,6 +32,7 @@ public final class ModuleEntry implements IXposedHookLoadPackage {
                                 SystemBridge.install(app);
                                 systemInstalled = true;
                                 ClassLoader loader = app.getClassLoader();
+                                safely("Google 服务磁贴位置", () -> GoogleTilePlacement.install(loader));
                                 safely("状态栏隐藏", () -> StatusBarCapture.install(loader));
                                 safely("通知中心天气", () -> NotificationWeather.install(loader));
                                 safely("控制中心插件", () -> installPluginLoader(loader));
@@ -47,6 +48,9 @@ public final class ModuleEntry implements IXposedHookLoadPackage {
                                 safely("小米音效界面", () -> MiSoundUiSync.install(app, param.classLoader));
                         }
                     });
+            } else if ("com.xiaomi.subscreencenter".equals(param.packageName)
+                    && "com.xiaomi.subscreencenter".equals(param.processName)) {
+                safely("背屏付款码", RearPaymentDisplay::install);
             } else if ("com.tencent.mm".equals(param.packageName) || "com.eg.android.AlipayGphone".equals(param.packageName)) {
                 safely("付款码页面识别", () -> PaymentPageHooks.install(param));
             } else if ("com.miui.screenshot".equals(param.packageName)) {

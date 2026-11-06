@@ -31,6 +31,12 @@ public final class BackgroundPolicy {
     public interface Callback { void done(BackgroundPolicyController.Result result); }
     private BackgroundPolicy() { }
 
+    public static boolean hasPendingRestore(Context context) {
+        for (String key : context.getSharedPreferences("payment_background_policy", Context.MODE_PRIVATE).getAll().keySet())
+            if (key.startsWith("original_")) return true;
+        return false;
+    }
+
     /** Handles an enabled setting that survived installation without a policy record. */
     public static boolean ensureInitialized(Context context, Callback callback) {
         Context app = context.getApplicationContext();
