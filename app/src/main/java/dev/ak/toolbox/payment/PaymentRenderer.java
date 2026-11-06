@@ -42,7 +42,17 @@ public final class PaymentRenderer {
         paint.setDither(false);
         paint.setColorFilter(null);
         canvas.drawBitmap(barcode, null, rect(layout.barcode()), paint);
-        canvas.drawBitmap(qr, null, rect(layout.qr()), paint);
+        Rect qrBounds = rect(layout.qr());
+        if (wechat) {
+            // Preserve the 0.1.20 size and move it up without overlapping the barcode.
+            int size = Math.round(qrBounds.width() * .90f * .85f);
+            qrBounds.left += (qrBounds.width() - size) / 2;
+            qrBounds.right = qrBounds.left + size;
+            qrBounds.top = qrBounds.bottom - size;
+            int upward = Math.min(40, Math.max(0, qrBounds.top - layout.barcode().bottom() - 6));
+            qrBounds.offset(0, -upward);
+        }
+        canvas.drawBitmap(qr, null, qrBounds, paint);
         paint.setColorFilter(null);
         canvas.restore();
     }

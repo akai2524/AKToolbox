@@ -7,8 +7,8 @@ android {
         applicationId = "dev.ak.toolbox"
         minSdk = 37
         targetSdk = 37
-        versionCode = 19
-        versionName = "0.1.18"
+        versionCode = 22
+        versionName = "0.1.21"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
