@@ -2,7 +2,9 @@ package dev.ak.toolbox;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -40,6 +42,8 @@ public final class MainActivity extends Activity {
     private boolean rendering, connected, busy, restarting, paymentBusy;
     private boolean legacyRestoreAttempted;
     private boolean rootNoticeOpen, rootReady;
+    private Switch hideLauncher;
+    private boolean updatingLauncher;
     private int rootCheckSequence;
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
@@ -92,6 +96,15 @@ public final class MainActivity extends Activity {
         gapps.addView(tile, spaced(14, 0, 14, 12));
         body.addView(gapps, spaced(0, 0, 0, 22));
 
+        section("屏幕时间");
+        LinearLayout screenTime = card();
+        screenTime.addView(text("隐藏指定应用", 19, ink), spaced(18, 16, 18, 4));
+        screenTime.addView(text("选择不在小米屏幕时间中显示的应用。", 13, muted), spaced(18, 0, 18, 10));
+        Button screenTimeEntry = button("选择应用", false);
+        screenTimeEntry.setOnClickListener(v -> startActivity(new Intent(this, ScreenTimeFilterActivity.class)));
+        screenTime.addView(screenTimeEntry, spaced(14, 0, 14, 14));
+        body.addView(screenTime, spaced(0, 0, 0, 22));
+
         section("背屏付款码");
         LinearLayout payment = card();
         option(payment, Options.REAR_PAYMENT, "打开微信或支付宝付款码时显示二维码和条形码，退出后自动隐藏");
@@ -132,6 +145,26 @@ public final class MainActivity extends Activity {
         option(notifications, Options.HIDE_EDIT, "隐藏控制中心编辑按钮");
         body.addView(notifications, spaced(0, 0, 0, 14));
 
+        section("工具箱设置");
+        LinearLayout toolboxSettings = card();
+        hideLauncher = row(toolboxSettings, "隐藏桌面图标",
+            "隐藏后可从 LSPosed 的模块页面打开工具箱，并在此恢复图标", isLauncherHidden());
+        hideLauncher.setOnCheckedChangeListener((view, checked) -> {
+            if (updatingLauncher) return;
+            try {
+                getPackageManager().setComponentEnabledSetting(launcherComponent(),
+                    checked ? PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                        : PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP);
+            } catch (RuntimeException failure) {
+                updatingLauncher = true;
+                hideLauncher.setChecked(isLauncherHidden());
+                updatingLauncher = false;
+                toast("无法修改桌面图标状态，请重试");
+            }
+        });
+        body.addView(toolboxSettings, spaced(0, 0, 0, 14));
+
         restart = button("重启系统界面", false);
         restart.setEnabled(false);
         restart.setOnClickListener(v -> restartSystemUi());
@@ -152,8 +185,20 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume();
+        if (hideLauncher != null) {
+            updatingLauncher = true;
+            hideLauncher.setChecked(isLauncherHidden());
+            updatingLauncher = false;
+        }
         checkRootAccess();
         if (!restarting) BridgeClient.send(this, BridgeClient.QUERY, null, this::showResult);
+    }
+    private ComponentName launcherComponent() {
+        return new ComponentName(this, getPackageName() + ".LauncherActivity");
+    }
+    private boolean isLauncherHidden() {
+        return getPackageManager().getComponentEnabledSetting(launcherComponent())
+            == PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
     }
     private void checkRootAccess() {
         int request = ++rootCheckSequence;

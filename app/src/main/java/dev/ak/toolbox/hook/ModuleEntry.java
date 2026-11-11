@@ -20,7 +20,9 @@ public final class ModuleEntry implements IXposedHookLoadPackage {
     @Override public void handleLoadPackage(XC_LoadPackage.LoadPackageParam param) {
         if (!HookSupport.supported()) return;
         try {
-            if ("com.android.systemui".equals(param.packageName) && "com.android.systemui".equals(param.processName)) {
+            if ("com.xiaomi.misettings".equals(param.packageName)) {
+                safely("屏幕时间隐藏", () -> ScreenTimeFilter.install(param.classLoader));
+            } else if ("com.android.systemui".equals(param.packageName) && "com.android.systemui".equals(param.processName)) {
                 // HyperOS 4 uses application.impl.SystemUIApplicationImpl. Hook the stable
                 // framework lifecycle instead of depending on a vendor Application class name.
                 XposedHelpers.findAndHookMethod(Instrumentation.class, "callApplicationOnCreate",

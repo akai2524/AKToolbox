@@ -2,12 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <permission android:name="dev.ak.toolbox.permission.CONTROL" android:protectionLevel="signature" />
     <uses-permission android:name="dev.ak.toolbox.permission.CONTROL" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <queries>
         <package android:name="org.lsposed.manager" />
         <package android:name="me.weishu.kernelsu" />
         <package android:name="com.topjohnwu.magisk" />
         <package android:name="me.bmax.apatch" />
         <package android:name="com.android.systemui" />
+        <package android:name="com.xiaomi.misettings" />
         <package android:name="com.google.android.gms" />
         <package android:name="com.google.android.gsf" />
         <package android:name="com.android.vending" />
@@ -26,13 +28,23 @@
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <activity-alias android:name=".LauncherActivity" android:targetActivity=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity android:name=".ScreenTimeFilterActivity" android:exported="false" />
+        <provider android:name=".ScreenTimeFilterProvider"
+            android:authorities="dev.ak.toolbox.screentimefilter" android:exported="true" />
         <service android:name=".GappsTileService" android:label="Google服务" android:icon="@drawable/ic_google_g"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" android:exported="true">
             <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
