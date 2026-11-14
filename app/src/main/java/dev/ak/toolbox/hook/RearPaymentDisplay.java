@@ -71,10 +71,7 @@ final class RearPaymentDisplay {
     }
 
     private static boolean supported(Context context) {
-        try {
-            return "pandora".equals(Build.DEVICE) && Build.VERSION.SDK_INT >= 37
-                && context.getPackageManager().getPackageInfo(REAR, 0).getLongVersionCode() == 426091419L;
-        } catch (Throwable ignored) { return false; }
+        return "pandora".equals(Build.DEVICE) && Build.VERSION.SDK_INT >= 37;
     }
 
     private static void receive(Context context, Intent intent, int senderUid) {

@@ -44,8 +44,6 @@ final class HeadsetAudioSwitch {
 
     static void install(Context context, Executor work) throws Exception {
         if (instance != null) return;
-        if (context.getPackageManager().getPackageInfo("com.miui.misound", 0).getLongVersionCode() != 260917L)
-            throw new IllegalStateException("小米音效版本与适配版本不匹配");
         HeadsetAudioSwitch switcher = new HeadsetAudioSwitch(context, work);
         if (switcher.audio == null) throw new IllegalStateException("音频服务不可用");
         switcher.start();

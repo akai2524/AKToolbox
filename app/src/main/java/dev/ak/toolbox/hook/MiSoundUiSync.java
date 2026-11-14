@@ -21,8 +21,6 @@ final class MiSoundUiSync {
 
     static synchronized void install(Application app, ClassLoader loader) throws Throwable {
         if (installed) return;
-        if (app.getPackageManager().getPackageInfo("com.miui.misound", 0).getLongVersionCode() != 260917L)
-            throw new IllegalStateException("小米音效版本与适配版本不匹配");
         Class<?> fragment = XposedHelpers.findClass("h.i", loader);
         Method refresh = fragment.getDeclaredMethod("N0");
         if (refresh.getReturnType() != void.class) throw new IllegalStateException("音效界面方法不匹配");

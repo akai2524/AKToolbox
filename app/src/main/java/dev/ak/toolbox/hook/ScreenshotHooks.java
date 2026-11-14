@@ -15,31 +15,23 @@ import de.robv.android.xposed.XposedHelpers;
 
 public final class ScreenshotHooks {
     public static final String CAPTURE = "dev.ak.toolbox.CAPTURE_STATE";
-    private static Boolean supportedVersion;
     private ScreenshotHooks() {}
-    private static boolean supported(Context context) {
-        if (supportedVersion == null) {
-            try { supportedVersion = context.getPackageManager().getPackageInfo("com.miui.screenshot", 0)
-                .getLongVersionCode() == 10603042L; }
-            catch (Throwable error) { supportedVersion = false; }
-            if (!supportedVersion) HookSupport.log("截屏版本不匹配，已跳过截屏增强");
-        }
-        return supportedVersion;
-    }
     public static void install(ClassLoader loader) {
-        // Util.o(Context) is the clipboard prohibition gate in RELEASE-1.6.3.42.
-        XposedHelpers.findAndHookMethod("com.miui.screenshot.util.Util", loader, "o", Context.class,
+        // Util.o(Context) is the clipboard prohibition gate in RELEASE-1.6.3.42 and 1.6.3.44.
+        try { XposedHelpers.findAndHookMethod("com.miui.screenshot.util.Util", loader, "o", Context.class,
             new XC_MethodHook() {
                 @Override protected void beforeHookedMethod(MethodHookParam p) {
                     Context context = (Context) p.args[0];
-                    if (supported(context) && Options.enabled(context, Options.COPY)) p.setResult(false);
+                    if (Options.enabled(context, Options.COPY)) p.setResult(false);
                 }
             });
-        XposedHelpers.findAndHookMethod("com.miui.screenshot.core.util.DisplayCapture", loader,
+            HookSupport.log("截屏复制 Hook 已加载");
+        } catch (Throwable error) { HookSupport.error("截屏复制 Hook", error); }
+        try { XposedHelpers.findAndHookMethod("com.miui.screenshot.core.util.DisplayCapture", loader,
             "captureDisplay", Context.class, int.class, Rect.class, String[].class, new XC_MethodHook() {
                 @Override protected void beforeHookedMethod(MethodHookParam p) {
                     Context context = (Context) p.args[0];
-                    if (!supported(context) || !Options.enabled(context, Options.HIDE_STATUS)) return;
+                    if (!Options.enabled(context, Options.HIDE_STATUS)) return;
                     try {
                         signal(context, false, (int) p.args[1]);
                         p.setObjectExtra("ak.hidden", true);
@@ -53,7 +45,8 @@ public final class ScreenshotHooks {
                     catch (Throwable error) { HookSupport.error("截屏隐藏恢复", error); }
                 }
             });
-        HookSupport.log("截屏复制与截屏隐藏已适配");
+            HookSupport.log("截屏隐藏 Hook 已加载");
+        } catch (Throwable error) { HookSupport.error("截屏隐藏 Hook", error); }
     }
     private static void signal(Context context, boolean finished, int display) {
         Intent intent = new Intent(CAPTURE).setPackage("com.android.systemui")

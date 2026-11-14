@@ -42,16 +42,11 @@ final class PaymentPageHooks {
         else if (ALI.equals(param.packageName)) installAlipay();
     }
 
-    private static boolean version(Activity activity, long expected) {
-        try { return activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0).getLongVersionCode() == expected; }
-        catch (Throwable ignored) { return false; }
-    }
-
     private static void installAlipay() {
         XposedHelpers.findAndHookMethod(Instrumentation.class, "callActivityOnResume", Activity.class, new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam p) {
                 Activity activity = (Activity) p.args[0];
-                if (ALI_PAGE.equals(activity.getClass().getName()) && version(activity, 212363L)
+                if (ALI_PAGE.equals(activity.getClass().getName())
                         && Options.enabled(activity, Options.REAR_PAYMENT))
                     ALIPAY.computeIfAbsent(activity, AlipayState::new).resume();
             }
@@ -70,7 +65,7 @@ final class PaymentPageHooks {
         XposedHelpers.findAndHookMethod(Instrumentation.class, "callActivityOnCreate", Activity.class, Bundle.class, new XC_MethodHook() {
             @Override protected void beforeHookedMethod(MethodHookParam p) {
                 Activity activity = (Activity) p.args[0];
-                if (!WX_HOST.equals(activity.getClass().getName()) || !version(activity, 3200L)) return;
+                if (!WX_HOST.equals(activity.getClass().getName())) return;
                 try { installCodeViews(activity.getClassLoader()); }
                 catch (Throwable error) { HookSupport.error("微信付款组件未适配", error); }
             }
@@ -78,7 +73,7 @@ final class PaymentPageHooks {
         XposedHelpers.findAndHookMethod(Instrumentation.class, "callActivityOnResume", Activity.class, new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam p) {
                 Activity activity = (Activity) p.args[0];
-                if (!WX_HOST.equals(activity.getClass().getName()) || !version(activity, 3200L)) return;
+                if (!WX_HOST.equals(activity.getClass().getName())) return;
                 WechatState state = WECHAT.computeIfAbsent(activity, WechatState::new);
                 state.resumed = true;
                 state.check();

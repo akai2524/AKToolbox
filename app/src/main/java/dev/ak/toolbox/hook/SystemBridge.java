@@ -34,10 +34,6 @@ public final class SystemBridge {
     private SystemBridge() {}
     public static synchronized void install(Application context) {
         if (registered) return;
-        try {
-            if (context.getPackageManager().getPackageInfo("com.android.systemui", 0).getLongVersionCode() != 202602260L)
-                throw new IllegalStateException("系统界面版本与适配版本不匹配");
-        } catch (PackageManager.NameNotFoundException error) { throw new IllegalStateException(error); }
         HookSupport.systemContext = context;
         PackageManager pm = context.getPackageManager();
         SharedPreferences recovery = context.createDeviceProtectedStorageContext()
