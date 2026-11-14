@@ -22,7 +22,7 @@
         android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="true">
         <meta-data android:name="miui.rear.policy" android:value="1" />
         <meta-data android:name="xposedmodule" android:value="true" />
-        <meta-data android:name="xposeddescription" android:value="小米 17 Pro · 澎湃 4：磁贴、截屏、通知、音效与输入法" />
+        <meta-data android:name="xposeddescription" android:value="澎湃系统：磁贴、截屏、通知、音效与输入法" />
         <meta-data android:name="xposedminversion" android:value="93" />
         <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
         <activity android:name=".MainActivity" android:exported="true">

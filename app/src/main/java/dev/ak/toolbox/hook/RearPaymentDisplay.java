@@ -13,7 +13,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -56,7 +55,7 @@ final class RearPaymentDisplay {
             new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
                     Application app = (Application) param.args[0];
-                    if (installed || !REAR.equals(app.getPackageName()) || !supported(app)) return;
+                    if (installed || !REAR.equals(app.getPackageName())) return;
                     installed = true;
                     app.registerReceiver(new BroadcastReceiver() {
                         @Override public void onReceive(Context context, Intent intent) {
@@ -68,10 +67,6 @@ final class RearPaymentDisplay {
                     }, new IntentFilter(Intent.ACTION_SCREEN_OFF), Context.RECEIVER_NOT_EXPORTED);
                 }
             });
-    }
-
-    private static boolean supported(Context context) {
-        return "pandora".equals(Build.DEVICE) && Build.VERSION.SDK_INT >= 37;
     }
 
     private static void receive(Context context, Intent intent, int senderUid) {

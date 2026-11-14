@@ -5,10 +5,10 @@ android {
     compileSdk { version = release(37) { minorApiLevel = 0 } }
     defaultConfig {
         applicationId = "dev.ak.toolbox"
-        minSdk = 37
+        minSdk = 35
         targetSdk = 37
-        versionCode = 36
-        versionName = "0.1.35"
+        versionCode = 37
+        versionName = "0.1.36"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
