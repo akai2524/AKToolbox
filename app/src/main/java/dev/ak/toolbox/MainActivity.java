@@ -120,12 +120,12 @@ public final class MainActivity extends Activity {
             startActivity(new Intent(this, ScreenTimeFilterActivity.class)));
         body.addView(systemCard, spaced(0, 0, 0, 16));
 
-        // 2. 多屏与副屏交互
-        section("多屏与副屏交互");
+        // 2. 背屏
+        section("背屏");
         LinearLayout rearCard = card();
-        option(rearCard, Options.REAR_PAYMENT, "付款码外屏投送");
+        option(rearCard, Options.REAR_PAYMENT, "付款码背屏投送");
         addDivider(rearCard);
-        option(rearCard, Options.REAR_TRANSIT, "乘车码外屏投送");
+        option(rearCard, Options.REAR_TRANSIT, "乘车码背屏投送");
         body.addView(rearCard, spaced(0, 0, 0, 16));
 
         // 3. 界面交互
