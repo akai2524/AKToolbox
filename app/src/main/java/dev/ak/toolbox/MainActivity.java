@@ -39,6 +39,9 @@ public final class MainActivity extends Activity {
     });
 
     private int background, surface, ink, muted, accent, soft, divider, greenDot;
+    private int cardBorder, softBorder;
+    private View fixedHeader;
+    private View headerDivider;
     private LinearLayout body;
     private TextView statusBadgeText, screenTimeCountText;
     private View statusDot;
@@ -55,14 +58,28 @@ public final class MainActivity extends Activity {
         boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
             == Configuration.UI_MODE_NIGHT_YES;
 
-        background = Color.parseColor(dark ? "#000000" : "#F2F2F7");
-        surface = Color.parseColor(dark ? "#1C1C1E" : "#FFFFFF");
-        ink = Color.parseColor(dark ? "#FFFFFF" : "#000000");
-        muted = Color.parseColor(dark ? "#8E8E93" : "#8E8E93");
-        accent = Color.parseColor(dark ? "#0A84FF" : "#007AFF");
-        soft = Color.parseColor(dark ? "#2C2C2E" : "#E5E5EA");
-        divider = Color.parseColor(dark ? "#2C2C2E" : "#E5E5EA");
+        background = Color.parseColor(dark ? "#0D0E11" : "#F6F8FA");
+        surface = Color.parseColor(dark ? "#16181D" : "#FFFFFF");
+        cardBorder = Color.parseColor(dark ? "#262B35" : "#E5E7EB");
+        ink = Color.parseColor(dark ? "#F2F4F8" : "#111827");
+        muted = Color.parseColor(dark ? "#878F9E" : "#6B7280");
+        accent = Color.parseColor("#0064EB");
+        soft = Color.parseColor(dark ? "#191D24" : "#EBF0F8");
+        softBorder = Color.parseColor(dark ? "#2A303C" : "#D7E1F0");
+        divider = Color.parseColor(dark ? "#1E222A" : "#F3F4F6");
         greenDot = Color.parseColor(dark ? "#30D158" : "#34C759");
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(background);
+
+        fixedHeader = setupFixedHeader();
+        root.addView(fixedHeader, new LinearLayout.LayoutParams(-1, -2));
+
+        headerDivider = new View(this);
+        headerDivider.setBackgroundColor(cardBorder);
+        headerDivider.setVisibility(View.INVISIBLE);
+        root.addView(headerDivider, new LinearLayout.LayoutParams(-1, dp(1)));
 
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(background);
@@ -70,17 +87,23 @@ public final class MainActivity extends Activity {
 
         body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(dp(16), dp(16), dp(16), dp(32));
+        body.setPadding(dp(16), dp(12), dp(16), dp(32));
         scroll.addView(body, new ScrollView.LayoutParams(-1, -2));
-        setContentView(scroll);
 
-        scroll.setOnApplyWindowInsetsListener((v, insets) -> {
-            Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-            body.setPadding(dp(16) + bars.left, bars.top + dp(14), dp(16) + bars.right, bars.bottom + dp(32));
-            return insets;
+        LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(-1, 0, 1f);
+        root.addView(scroll, scrollParams);
+        setContentView(root);
+
+        scroll.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+            headerDivider.setVisibility(scrollY > dp(2) ? View.VISIBLE : View.INVISIBLE);
         });
 
-        setupHeader();
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            fixedHeader.setPadding(dp(20) + bars.left, bars.top + dp(12), dp(20) + bars.right, dp(12));
+            body.setPadding(dp(16) + bars.left, dp(12), dp(16) + bars.right, bars.bottom + dp(32));
+            return insets;
+        });
 
         // 1. 系统与服务
         section("系统与服务");
@@ -95,15 +118,15 @@ public final class MainActivity extends Activity {
         addDivider(systemCard);
         screenTimeCountText = arrowRow(systemCard, "隐藏屏幕时间应用", "", v ->
             startActivity(new Intent(this, ScreenTimeFilterActivity.class)));
-        body.addView(systemCard, spaced(0, 0, 0, 18));
+        body.addView(systemCard, spaced(0, 0, 0, 16));
 
-        // 2. 背屏显示
-        section("背屏显示");
+        // 2. 多屏与副屏交互
+        section("多屏与副屏交互");
         LinearLayout rearCard = card();
-        option(rearCard, Options.REAR_PAYMENT, "付款码自动投送");
+        option(rearCard, Options.REAR_PAYMENT, "付款码外屏投送");
         addDivider(rearCard);
-        option(rearCard, Options.REAR_TRANSIT, "乘车码自动投送");
-        body.addView(rearCard, spaced(0, 0, 0, 18));
+        option(rearCard, Options.REAR_TRANSIT, "乘车码外屏投送");
+        body.addView(rearCard, spaced(0, 0, 0, 16));
 
         // 3. 界面交互
         section("界面交互");
@@ -142,10 +165,10 @@ public final class MainActivity extends Activity {
         addDivider(uiCard);
 
         option(uiCard, Options.HIDE_EDIT, "隐藏控制中心编辑按钮");
-        body.addView(uiCard, spaced(0, 0, 0, 18));
+        body.addView(uiCard, spaced(0, 0, 0, 16));
 
-        // 4. 管理
-        section("管理");
+        // 4. 管理与系统
+        section("管理与系统");
         LinearLayout manageCard = card();
         hideLauncher = switchRow(manageCard, "隐藏桌面图标", isLauncherHidden(), (v, checked) -> {
             if (updatingLauncher) return;
@@ -167,30 +190,31 @@ public final class MainActivity extends Activity {
         arrowRow(manageCard, "LSPosed 模块管理器", "", v -> openManager());
         addDivider(manageCard);
         arrowRow(manageCard, "Root 管理器", "", v -> openRootManager());
-        body.addView(manageCard, spaced(0, 0, 0, 18));
+        body.addView(manageCard, spaced(0, 0, 0, 16));
     }
 
-    private void setupHeader() {
+    private View setupFixedHeader() {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(4), dp(10), dp(4), dp(16));
+        header.setBackgroundColor(background);
+        header.setPadding(dp(20), dp(12), dp(20), dp(12));
 
         LinearLayout titles = new LinearLayout(this);
         titles.setOrientation(LinearLayout.VERTICAL);
-        TextView title = text("AK工具箱", 28, ink);
+        TextView title = text("AK工具箱", 24, ink);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
         titles.addView(title);
 
-        TextView subtitle = text(getDeviceModel() + " · " + getOsVersion(), 13, muted);
-        titles.addView(subtitle, spaced(0, 3, 0, 0));
+        TextView subtitle = text(getDeviceModel() + " · " + getOsVersion(), 12, muted);
+        titles.addView(subtitle, spaced(0, 4, 0, 0));
         header.addView(titles, new LinearLayout.LayoutParams(0, -2, 1));
 
         LinearLayout badge = new LinearLayout(this);
         badge.setOrientation(LinearLayout.HORIZONTAL);
         badge.setGravity(Gravity.CENTER_VERTICAL);
         badge.setPadding(dp(10), dp(5), dp(12), dp(5));
-        badge.setBackground(round(soft, 14));
+        badge.setBackground(round(soft, 14, softBorder, dp(1)));
 
         statusDot = new View(this);
         statusDot.setBackground(round(muted, 4));
@@ -203,7 +227,7 @@ public final class MainActivity extends Activity {
         badge.addView(statusBadgeText);
 
         header.addView(badge);
-        body.addView(header);
+        return header;
     }
 
     private boolean isGoogleTileEnabled() {
@@ -421,23 +445,23 @@ public final class MainActivity extends Activity {
     private void section(String title) {
         TextView heading = text(title, 13, muted);
         heading.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        body.addView(heading, spaced(6, 0, 6, 6));
+        body.addView(heading, spaced(4, 4, 4, 8));
     }
 
     private LinearLayout card() {
         LinearLayout view = new LinearLayout(this);
         view.setOrientation(LinearLayout.VERTICAL);
-        view.setBackground(round(surface, 18));
+        view.setBackground(round(surface, 16, cardBorder, dp(1)));
         return view;
     }
 
     private Switch switchRow(LinearLayout group, String title, boolean checked, android.widget.CompoundButton.OnCheckedChangeListener listener) {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(16), dp(11), dp(16), dp(11));
-        row.setMinimumHeight(dp(54));
+        row.setPadding(dp(16), dp(12), dp(16), dp(12));
+        row.setMinimumHeight(dp(52));
 
-        TextView label = text(title, 16, ink);
+        TextView label = text(title, 15, ink);
         row.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
 
         Switch control = new Switch(this);
@@ -454,13 +478,13 @@ public final class MainActivity extends Activity {
     private TextView arrowRow(LinearLayout group, String title, String value, View.OnClickListener onClick) {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(16), dp(11), dp(16), dp(11));
-        row.setMinimumHeight(dp(54));
+        row.setPadding(dp(16), dp(12), dp(16), dp(12));
+        row.setMinimumHeight(dp(52));
 
-        TextView label = text(title, 16, ink);
+        TextView label = text(title, 15, ink);
         row.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
 
-        TextView valueView = text(value, 14, muted);
+        TextView valueView = text(value, 13, muted);
         valueView.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         row.addView(valueView, new LinearLayout.LayoutParams(-2, -2));
 
@@ -476,7 +500,7 @@ public final class MainActivity extends Activity {
     private void addDivider(LinearLayout group) {
         View line = new View(this);
         line.setBackgroundColor(divider);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, 1);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(1));
         params.leftMargin = dp(16);
         params.rightMargin = dp(16);
         group.addView(line, params);
@@ -491,9 +515,16 @@ public final class MainActivity extends Activity {
     }
 
     private GradientDrawable round(int color, int radius) {
+        return round(color, radius, 0, 0);
+    }
+
+    private GradientDrawable round(int color, int radius, int strokeColor, int strokeWidth) {
         GradientDrawable shape = new GradientDrawable();
         shape.setColor(color);
         shape.setCornerRadius(dp(radius));
+        if (strokeWidth > 0 && strokeColor != 0) {
+            shape.setStroke(strokeWidth, strokeColor);
+        }
         return shape;
     }
 

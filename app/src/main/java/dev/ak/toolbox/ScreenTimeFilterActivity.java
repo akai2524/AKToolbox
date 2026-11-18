@@ -46,7 +46,7 @@ public final class ScreenTimeFilterActivity extends Activity {
     private final List<App> all = new ArrayList<>(), visible = new ArrayList<>();
     private final LruCache<String, Drawable> icons = new LruCache<>(80);
     private Set<String> selected;
-    private int background, surface, ink, muted, accent, soft;
+    private int background, surface, ink, muted, accent, soft, divider, cardBorder, softBorder;
     private boolean showSystem;
     private String search = "";
     private TextView count;
@@ -59,24 +59,29 @@ public final class ScreenTimeFilterActivity extends Activity {
         super.onCreate(state);
         boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
             == Configuration.UI_MODE_NIGHT_YES;
-        background = Color.parseColor(dark ? "#111318" : "#F5F6F8");
-        surface = Color.parseColor(dark ? "#1C1F25" : "#FFFFFF");
-        ink = Color.parseColor(dark ? "#F1F3F8" : "#17191E");
-        muted = Color.parseColor(dark ? "#A4ACBA" : "#717785");
-        accent = Color.parseColor(dark ? "#91ADFF" : "#3868E8");
-        soft = Color.parseColor(dark ? "#26314C" : "#EAF0FF");
+        background = Color.parseColor(dark ? "#0D0E11" : "#F6F8FA");
+        surface = Color.parseColor(dark ? "#16181D" : "#FFFFFF");
+        cardBorder = Color.parseColor(dark ? "#262B35" : "#E5E7EB");
+        ink = Color.parseColor(dark ? "#F2F4F8" : "#111827");
+        muted = Color.parseColor(dark ? "#878F9E" : "#6B7280");
+        accent = Color.parseColor("#0064EB");
+        soft = Color.parseColor(dark ? "#191D24" : "#EBF0F8");
+        softBorder = Color.parseColor(dark ? "#2A303C" : "#D7E1F0");
+        divider = Color.parseColor(dark ? "#1E222A" : "#F3F4F6");
         selected = ScreenTimeFilterProvider.selected(this);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(background);
-        root.setPadding(dp(20), dp(16), dp(20), dp(12));
+        root.setPadding(dp(16), dp(12), dp(16), dp(16));
         setContentView(root);
         root.setOnApplyWindowInsetsListener((v, insets) -> {
             Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-            root.setPadding(dp(20) + bars.left, dp(16) + bars.top, dp(20) + bars.right, dp(12) + bars.bottom);
+            root.setPadding(dp(16) + bars.left, bars.top + dp(12), dp(16) + bars.right, bars.bottom + dp(16));
             return insets;
         });
+
+        // 顶部导航栏（包含绝对居中的矢量返回键与自解释统计）
         LinearLayout navBar = new LinearLayout(this);
         navBar.setOrientation(LinearLayout.HORIZONTAL);
         navBar.setGravity(Gravity.CENTER_VERTICAL);
@@ -88,22 +93,42 @@ public final class ScreenTimeFilterActivity extends Activity {
         backBtn.setOnClickListener(v -> finish());
         navBar.addView(backBtn, backParams);
 
-        TextView title = text("屏幕时间隐藏", 26, ink);
-        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        TextView title = text("屏幕时间隐藏", 22, ink);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
         title.setIncludeFontPadding(false);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, -2, 1);
         titleParams.gravity = Gravity.CENTER_VERTICAL;
         navBar.addView(title, titleParams);
 
-        root.addView(navBar, margin(0, 0, 0, 6));
-        TextView help = text("选择不在小米屏幕时间中显示的应用。系统仍会记录使用时间。", 13, muted);
-        help.setLineSpacing(dp(3), 1f);
-        root.addView(help, margin(0, 0, 0, 12));
+        count = text("正在读取…", 12, muted);
+        count.setIncludeFontPadding(false);
+        navBar.addView(count);
+        root.addView(navBar, margin(0, 0, 0, 16));
 
+        // 极简搜索栏（44dp 高度，12dp 圆角，1px 发丝边框）
+        EditText query = new EditText(this);
+        query.setSingleLine(true);
+        query.setTextColor(ink);
+        query.setHintTextColor(muted);
+        query.setHint("搜索应用或包名");
+        query.setTextSize(14);
+        query.setPadding(dp(16), 0, dp(16), 0);
+        query.setBackground(round(surface, 12, cardBorder, dp(1)));
+        query.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                search = s.toString().trim().toLowerCase(Locale.ROOT);
+                refresh();
+            }
+            @Override public void afterTextChanged(Editable e) { }
+        });
+        root.addView(query, new LinearLayout.LayoutParams(-1, dp(44)));
+
+        // 控制选项卡片（砍除全部多余副标文字）
         LinearLayout settings = new LinearLayout(this);
         settings.setOrientation(LinearLayout.VERTICAL);
-        settings.setBackground(round(surface, 20));
-        Switch enabled = switchRow(settings, "启用隐藏", "对已选择的应用生效", ScreenTimeFilterProvider.preferences(this)
+        settings.setBackground(round(surface, 16, cardBorder, dp(1)));
+        Switch enabled = switchRow(settings, "启用隐藏过滤", ScreenTimeFilterProvider.preferences(this)
             .getBoolean(ScreenTimeFilterProvider.ENABLED, false));
         enabled.setOnCheckedChangeListener((button, checked) -> {
             if (!ScreenTimeFilterProvider.preferences(this).edit()
@@ -114,50 +139,38 @@ public final class ScreenTimeFilterActivity extends Activity {
                 recreate();
             }
         });
-        Switch system = switchRow(settings, "显示系统应用", "关闭时仅显示非系统应用", false);
+
+        View switchDiv = new View(this);
+        switchDiv.setBackgroundColor(divider);
+        LinearLayout.LayoutParams sdivParams = new LinearLayout.LayoutParams(-1, dp(1));
+        sdivParams.leftMargin = dp(16);
+        sdivParams.rightMargin = dp(16);
+        settings.addView(switchDiv, sdivParams);
+
+        Switch system = switchRow(settings, "包含系统应用", false);
         system.setOnCheckedChangeListener((button, checked) -> { showSystem = checked; refresh(); });
-        root.addView(settings, margin(0, 0, 0, 10));
+        root.addView(settings, margin(0, 16, 0, 16));
 
-        TextView scopeHint = text("请在 LSPosed 勾选“小米设置”。修改后强行停止小米设置或重启手机。", 12, muted);
-        scopeHint.setLineSpacing(dp(2), 1f);
-        root.addView(scopeHint, margin(3, 0, 3, 10));
+        TextView listTitle = text("应用列表", 13, muted);
+        listTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        root.addView(listTitle, margin(4, 0, 4, 8));
 
-        EditText query = new EditText(this);
-        query.setSingleLine(true);
-        query.setTextColor(ink);
-        query.setHintTextColor(muted);
-        query.setHint("搜索应用名称或包名");
-        query.setTextSize(14);
-        query.setPadding(dp(14), 0, dp(14), 0);
-        query.setBackground(round(surface, 14));
-        query.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                search = s.toString().trim().toLowerCase(Locale.ROOT);
-                refresh();
-            }
-            @Override public void afterTextChanged(Editable e) { }
-        });
-        root.addView(query, new LinearLayout.LayoutParams(-1, dp(48)));
-        LinearLayout listHeading = new LinearLayout(this);
-        listHeading.setGravity(Gravity.CENTER_VERTICAL);
-        TextView listTitle = text("应用列表", 15, ink);
-        listTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        listHeading.addView(listTitle, new LinearLayout.LayoutParams(0, -2, 1));
-        count = text("正在读取…", 12, muted);
-        listHeading.addView(count);
-        root.addView(listHeading, margin(4, 12, 4, 7));
-        TextView sortHint = text("已选应用自动置顶", 11, muted);
-        root.addView(sortHint, margin(4, 0, 4, 7));
         ListView list = new ListView(this);
-        list.setDivider(new ColorDrawable(Color.TRANSPARENT));
-        list.setDividerHeight(dp(6));
-        list.setPadding(dp(10), dp(10), dp(10), dp(10));
+        list.setDivider(new ColorDrawable(divider));
+        list.setDividerHeight(dp(1));
         list.setClipToPadding(false);
-        list.setBackground(round(surface, 20));
+        list.setBackground(round(surface, 16, cardBorder, dp(1)));
         list.setClipToOutline(true);
         adapter = new AppAdapter();
         list.setAdapter(adapter);
+        root.addView(list, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        empty = text("正在读取应用列表…", 14, muted);
+        empty.setGravity(Gravity.CENTER);
+        empty.setBackground(round(surface, 16, cardBorder, dp(1)));
+        root.addView(empty, new LinearLayout.LayoutParams(-1, 0, 1));
+        list.setEmptyView(empty);
+        loadApps();
         root.addView(list, new LinearLayout.LayoutParams(-1, 0, 1));
         empty = text("正在读取应用列表…", 14, muted);
         empty.setGravity(Gravity.CENTER);
@@ -230,11 +243,12 @@ public final class ScreenTimeFilterActivity extends Activity {
                 icons.put(app.packageName(), appIcon);
             }
             icon.setImageDrawable(appIcon);
-            LinearLayout.LayoutParams iconLayout = new LinearLayout.LayoutParams(dp(38), dp(38));
-            iconLayout.rightMargin = dp(12);
+            LinearLayout.LayoutParams iconLayout = new LinearLayout.LayoutParams(dp(36), dp(36));
+            iconLayout.rightMargin = dp(14);
             row.addView(icon, iconLayout);
             CheckBox check = new CheckBox(ScreenTimeFilterActivity.this);
             check.setChecked(isSelected);
+            check.setButtonTintList(ColorStateList.valueOf(accent));
             check.setContentDescription("隐藏 " + app.label());
             LinearLayout labels = new LinearLayout(ScreenTimeFilterActivity.this);
             labels.setOrientation(LinearLayout.VERTICAL);
@@ -242,7 +256,7 @@ public final class ScreenTimeFilterActivity extends Activity {
             appName.setSingleLine(true);
             appName.setEllipsize(TextUtils.TruncateAt.END);
             labels.addView(appName);
-            TextView appPackage = text(app.packageName(), 11, muted);
+            TextView appPackage = text(app.packageName(), 12, muted);
             appPackage.setSingleLine(true);
             appPackage.setEllipsize(TextUtils.TruncateAt.MIDDLE);
             labels.addView(appPackage);
@@ -266,21 +280,23 @@ public final class ScreenTimeFilterActivity extends Activity {
         }
     }
 
-    private Switch switchRow(LinearLayout parent, String label, String description, boolean checked) {
+    private Switch switchRow(LinearLayout parent, String label, boolean checked) {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(16), dp(10), dp(16), dp(10));
-        LinearLayout labels = new LinearLayout(this);
-        labels.setOrientation(LinearLayout.VERTICAL);
-        labels.addView(text(label, 15, ink));
-        labels.addView(text(description, 12, muted));
-        row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
+        row.setPadding(dp(16), dp(12), dp(16), dp(12));
+        row.setMinimumHeight(dp(52));
+
+        TextView name = text(label, 15, ink);
+        row.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+
         Switch control = new Switch(this);
         control.setContentDescription(label);
         control.setChecked(checked);
+        control.setShowText(false);
         row.addView(control);
+
         row.setOnClickListener(v -> control.setChecked(!control.isChecked()));
-        parent.addView(row);
+        parent.addView(row, new LinearLayout.LayoutParams(-1, -2));
         return control;
     }
     private TextView text(String value, int size, int color) {
@@ -288,8 +304,16 @@ public final class ScreenTimeFilterActivity extends Activity {
         result.setText(value); result.setTextSize(size); result.setTextColor(color); return result;
     }
     private GradientDrawable round(int color, int radius) {
+        return round(color, radius, 0, 0);
+    }
+    private GradientDrawable round(int color, int radius, int strokeColor, int strokeWidth) {
         GradientDrawable shape = new GradientDrawable();
-        shape.setColor(color); shape.setCornerRadius(dp(radius)); return shape;
+        shape.setColor(color);
+        shape.setCornerRadius(dp(radius));
+        if (strokeWidth > 0 && strokeColor != 0) {
+            shape.setStroke(strokeWidth, strokeColor);
+        }
+        return shape;
     }
     private LinearLayout.LayoutParams margin(int l, int t, int r, int b) {
         LinearLayout.LayoutParams result = new LinearLayout.LayoutParams(-1, -2);

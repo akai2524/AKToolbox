@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 左主面 深邃科技蓝 -->
+    <path
+        android:fillColor="#0050D7"
+        android:pathData="M28.8,80 L54,66 L54,28 L28.8,42 Z" />
+    <!-- 右副面 高亮电光天蓝 -->
+    <path
+        android:fillColor="#008CFF"
+        android:pathData="M54,66 L79.2,80 L79.2,42 L54,28 Z" />
+    <!-- 顶折面 深曜黑（沉实立体分量） -->
+    <path
+        android:fillColor="#111827"
+        android:pathData="M54,28 L79.2,42 L54,56 L28.8,42 Z" />
+    <!-- 中心原点 纯白闪耀微核 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50.8,56 A3.2,3.2 0 1,0 57.2,56 A3.2,3.2 0 1,0 50.8,56 Z" />
+</vector>
