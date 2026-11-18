@@ -49,6 +49,44 @@ public final class RearFrameSender {
         } catch (Throwable ignored) { recycle(first); recycle(second); BUSY.set(false); stop(activity); }
     }
 
+    public static void frameTransit(Activity activity, View qr) {
+        long now = SystemClock.elapsedRealtime();
+        if (now - lastCapture < PERIOD || !BUSY.compareAndSet(false, true)) return;
+        lastCapture = now;
+        Bitmap first = null;
+        try {
+            first = snapshot(qr);
+            if (first == null) { BUSY.set(false); stop(activity); return; }
+            Bitmap q = first;
+            Context app = activity.getApplicationContext();
+            long token = GENERATION.get(), event = SystemClock.elapsedRealtimeNanos();
+            String owner = activity.getPackageName();
+            if (!"com.tencent.mm".equals(owner) && !"com.eg.android.AlipayGphone".equals(owner)) {
+                recycle(q); BUSY.set(false); return;
+            }
+            QUEUE.execute(() -> transmitTransit(app, owner, token, event, q));
+        } catch (Throwable ignored) { recycle(first); BUSY.set(false); stop(activity); }
+    }
+
+    public static void frameTransitBitmap(Activity activity, Bitmap qr) {
+        if (qr == null) { stop(activity); return; }
+        long now = SystemClock.elapsedRealtime();
+        if (now - lastCapture < PERIOD || !BUSY.compareAndSet(false, true)) {
+            recycle(qr);
+            return;
+        }
+        lastCapture = now;
+        try {
+            Context app = activity.getApplicationContext();
+            long token = GENERATION.get(), event = SystemClock.elapsedRealtimeNanos();
+            String owner = activity.getPackageName();
+            if (!"com.tencent.mm".equals(owner) && !"com.eg.android.AlipayGphone".equals(owner)) {
+                recycle(qr); BUSY.set(false); return;
+            }
+            QUEUE.execute(() -> transmitTransit(app, owner, token, event, qr));
+        } catch (Throwable ignored) { recycle(qr); BUSY.set(false); stop(activity); }
+    }
+
     public static void stop(Activity activity) {
         GENERATION.incrementAndGet();
         Context app = activity.getApplicationContext();
@@ -61,8 +99,8 @@ public final class RearFrameSender {
     }
 
     private static Bitmap snapshot(View view) {
-        if (!(view instanceof ImageView image) || image.getDrawable() == null
-                || !view.isAttachedToWindow() || !view.isShown()) return null;
+        if (view == null || !view.isAttachedToWindow() || !view.isShown()) return null;
+        if (view instanceof ImageView image && image.getDrawable() == null) return null;
         int width = view.getWidth(), height = view.getHeight();
         if (width <= 0 || height <= 0 || width > 3000 || height > 3000) return null;
         float scale = Math.min(1f, 1000f / Math.max(width, height));
@@ -80,13 +118,28 @@ public final class RearFrameSender {
             if (generation != GENERATION.get()) return;
             first = encode(qr); second = encode(bar);
             if (first.length + second.length > MAX_BYTES || generation != GENERATION.get()) return;
-            Intent intent = intent(owner, "frame", event).putExtra("qr", first).putExtra("bar", second);
+            Intent intent = intent(owner, "frame", event).putExtra("codeType", "payment").putExtra("qr", first).putExtra("bar", second);
             send(app, intent);
         } catch (Throwable ignored) { }
         finally {
             if (first != null) Arrays.fill(first, (byte) 0);
             if (second != null) Arrays.fill(second, (byte) 0);
             recycle(qr); recycle(bar); BUSY.set(false);
+        }
+    }
+
+    private static void transmitTransit(Context app, String owner, long generation, long event, Bitmap qr) {
+        byte[] first = null;
+        try {
+            if (generation != GENERATION.get()) return;
+            first = encode(qr);
+            if (first.length > MAX_BYTES || generation != GENERATION.get()) return;
+            Intent intent = intent(owner, "frame", event).putExtra("codeType", "transit").putExtra("qr", first);
+            send(app, intent);
+        } catch (Throwable ignored) { }
+        finally {
+            if (first != null) Arrays.fill(first, (byte) 0);
+            recycle(qr); BUSY.set(false);
         }
     }
 

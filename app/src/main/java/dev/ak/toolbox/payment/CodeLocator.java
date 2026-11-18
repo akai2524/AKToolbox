@@ -14,6 +14,25 @@ public final class CodeLocator {
     public record Pair(Box qr, Box barcode) { }
     private CodeLocator() { }
 
+    public static Box locateQr(int width, int height, int[] pixels) {
+        try {
+            BitMatrix bits = new BinaryBitmap(new HybridBinarizer(new RGBLuminanceSource(width, height, pixels))).getBlackMatrix();
+            DetectorResult detection = new Detector(bits).detect(null);
+            ResultPoint[] finder = detection.getPoints();
+            if (finder == null || finder.length < 3) return null;
+            float minX = width, minY = height, maxX = 0, maxY = 0;
+            for (int i = 0; i < 3; i++) {
+                ResultPoint p = finder[i];
+                minX = Math.min(minX, p.getX()); maxX = Math.max(maxX, p.getX());
+                minY = Math.min(minY, p.getY()); maxY = Math.max(maxY, p.getY());
+            }
+            float module = (maxX - minX + maxY - minY) / (2 * Math.max(1, detection.getBits().getWidth() - 7));
+            int pad = Math.max(8, Math.round(module * 7));
+            return new Box(Math.max(0, Math.round(minX) - pad), Math.max(0, Math.round(minY) - pad),
+                Math.min(width, Math.round(maxX) + pad), Math.min(height, Math.round(maxY) + pad));
+        } catch (Throwable ignored) { return null; }
+    }
+
     public static Pair locate(int width, int height, int[] pixels) throws Exception {
         BitMatrix bits = new BinaryBitmap(new HybridBinarizer(new RGBLuminanceSource(width, height, pixels))).getBlackMatrix();
         DetectorResult detection = new Detector(bits).detect(null);

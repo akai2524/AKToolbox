@@ -44,6 +44,7 @@ final class RearPaymentDisplay {
     private static boolean installed;
     private static long lastEvent;
     private static String owner;
+    private static String currentType = "payment";
     private static Bitmap qr, barcode;
     private static WindowManager manager;
     private static View overlay;
@@ -81,17 +82,22 @@ final class RearPaymentDisplay {
             lastEvent = event;
             String command = intent.getStringExtra("command");
             if ("stop".equals(command)) { if (source.equals(owner)) remove(); return; }
-            if (!"frame".equals(command) || !allowed(context)) { remove(); return; }
-            firstBytes = intent.getByteArrayExtra("qr"); secondBytes = intent.getByteArrayExtra("bar");
-            if (firstBytes == null || secondBytes == null || firstBytes.length + secondBytes.length > MAX_IMAGE_BYTES) {
+            String codeType = intent.getStringExtra("codeType");
+            if (codeType == null) codeType = "payment";
+            if (!"frame".equals(command) || !allowed(context, codeType)) { remove(); return; }
+            firstBytes = intent.getByteArrayExtra("qr");
+            secondBytes = "transit".equals(codeType) ? null : intent.getByteArrayExtra("bar");
+            int totalBytes = (firstBytes != null ? firstBytes.length : 0) + (secondBytes != null ? secondBytes.length : 0);
+            if (firstBytes == null || totalBytes > MAX_IMAGE_BYTES || (!"transit".equals(codeType) && secondBytes == null)) {
                 remove(); return;
             }
             Bitmap first = null, second = null;
             try {
-                first = decode(firstBytes); second = decode(secondBytes);
-                if (first == null || second == null) { remove(); return; }
+                first = decode(firstBytes);
+                second = secondBytes != null ? decode(secondBytes) : null;
+                if (first == null || (!"transit".equals(codeType) && second == null)) { remove(); return; }
                 long age = (now - event) / 1_000_000L;
-                show(context, source, first, second, Math.max(1, MAX_FRAME_MS - age));
+                show(context, source, codeType, first, second, Math.max(1, MAX_FRAME_MS - age));
                 first = null; second = null;
             } finally { recycle(first); recycle(second); }
         } catch (Throwable error) {
@@ -102,10 +108,11 @@ final class RearPaymentDisplay {
         }
     }
 
-    private static boolean allowed(Context context) {
+    private static boolean allowed(Context context, String codeType) {
         try {
             KeyguardManager keyguard = context.getSystemService(KeyguardManager.class);
-            return Options.enabled(context, Options.REAR_PAYMENT) && keyguard != null && !keyguard.isKeyguardLocked();
+            String optKey = "transit".equals(codeType) ? Options.REAR_TRANSIT : Options.REAR_PAYMENT;
+            return Options.enabled(context, optKey) && keyguard != null && !keyguard.isKeyguardLocked();
         } catch (Throwable ignored) { return false; }
     }
 
@@ -116,7 +123,7 @@ final class RearPaymentDisplay {
         return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
     }
 
-    private static void show(Context context, String source, Bitmap first, Bitmap second, long lifetime) {
+    private static void show(Context context, String source, String codeType, Bitmap first, Bitmap second, long lifetime) {
         if (overlay == null) {
             try {
                 Display display = context.getSystemService(DisplayManager.class).getDisplay(1);
@@ -126,8 +133,9 @@ final class RearPaymentDisplay {
                 View content = new View(rear) {
                     final PaymentRenderer renderer = new PaymentRenderer();
                     @Override protected void onDraw(Canvas canvas) {
-                        if (qr == null || barcode == null) return;
+                        if (qr == null) return;
                         boolean ali = ALI.equals(owner);
+                        boolean isTransit = "transit".equals(currentType);
                         canvas.drawColor(ali ? Color.rgb(22, 112, 234) : Color.rgb(7, 137, 65));
                         Display current = getDisplay();
                         DisplayCutout cutout = current == null ? null : current.getCutout();
@@ -135,8 +143,13 @@ final class RearPaymentDisplay {
                         int left = cutout.getSafeInsetLeft(), top = cutout.getSafeInsetTop();
                         int right = getWidth() - cutout.getSafeInsetRight();
                         int bottom = getHeight() - cutout.getSafeInsetBottom();
-                        if (right - left >= 120 && bottom - top >= 160)
-                            renderer.draw(canvas, left, top, right, bottom, qr, barcode, ali ? "支付宝付款码" : "微信付款码");
+                        if (right - left >= 120 && bottom - top >= 160) {
+                            if (isTransit) {
+                                renderer.drawTransit(canvas, left, top, right, bottom, qr, ali ? "支付宝乘车码" : "微信乘车码");
+                            } else if (barcode != null) {
+                                renderer.draw(canvas, left, top, right, bottom, qr, barcode, ali ? "支付宝付款码" : "微信付款码");
+                            }
+                        }
                     }
                 };
                 WindowManager.LayoutParams params = new WindowManager.LayoutParams(
@@ -160,7 +173,7 @@ final class RearPaymentDisplay {
             }
         }
         Bitmap oldQr = qr, oldBarcode = barcode;
-        owner = source; qr = first; barcode = second;
+        owner = source; currentType = codeType; qr = first; barcode = second;
         overlay.invalidate();
         recycleLater(oldQr); recycleLater(oldBarcode);
         MAIN.removeCallbacks(EXPIRE);

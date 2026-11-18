@@ -42,4 +42,31 @@ public final class PaymentLayout {
         Box qr = new Box(qrLeft, qrTop, qrLeft + qrSize, qrTop + qrSize);
         return new Layout(header, card, bar, qr, false);
     }
+
+    public static Layout calculateTransit(int width, int height) {
+        if (width < 120 || height < 160) return null;
+        int margin = Math.max(5, Math.min(19, Math.min(width, height) / 30));
+        int gap = Math.max(4, Math.min(10, margin / 2));
+        int headerTop = Math.max(6, Math.min(24, height / 24));
+        int headerHeight = Math.max(20, Math.min(60, height / 9));
+        int cardTop = headerTop + headerHeight + gap;
+        int cardBottom = height - margin;
+        int cardHeight = cardBottom - cardTop;
+        if (cardHeight < 70) return null;
+        int cornerInset = Math.max(8, Math.min(34, width / 18));
+        int cardLeft = margin + 6;
+        int maxCardWidth = width - margin - cornerInset - cardLeft;
+        if (maxCardWidth < 60) return null;
+        int cardWidth = Math.min(cardHeight + Math.max(4, cardHeight / 20), maxCardWidth);
+        int cardRight = cardLeft + cardWidth;
+        Box header = new Box(cardLeft, headerTop, cardRight, headerTop + headerHeight);
+        Box card = new Box(cardLeft, cardTop, cardRight, cardBottom);
+        int pad = Math.max(8, Math.min(24, cardHeight / 16));
+        int qrSize = Math.min(cardWidth - 2 * pad, cardHeight - 2 * pad);
+        if (qrSize < 24) return null;
+        int qrLeft = cardLeft + (cardWidth - qrSize) / 2;
+        int qrTop = cardTop + (cardHeight - qrSize) / 2;
+        Box qr = new Box(qrLeft, qrTop, qrLeft + qrSize, qrTop + qrSize);
+        return new Layout(header, card, null, qr, false);
+    }
 }

@@ -57,6 +57,34 @@ public final class PaymentRenderer {
         canvas.restore();
     }
 
+    public void drawTransit(Canvas canvas, int left, int top, int right, int bottom,
+            Bitmap qr, String label) {
+        if (qr == null) return;
+        int width = right - left, height = bottom - top;
+        PaymentLayout.Layout layout = PaymentLayout.calculateTransit(width, height);
+        if (layout == null) return;
+        boolean wechat = "微信乘车码".equals(label);
+        canvas.drawColor(wechat ? Color.rgb(7, 137, 65) : Color.rgb(22, 112, 234));
+        canvas.save();
+        canvas.translate(left, top);
+        paint.setColorFilter(null);
+        paint.setColor(Color.WHITE);
+        paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        paint.setTextAlign(Paint.Align.LEFT);
+        paint.setTextSize(Math.max(16, Math.min(46, layout.header().height() * .80f)));
+        Paint.FontMetrics metrics = paint.getFontMetrics();
+        float baseline = (layout.header().top() + layout.header().bottom() - metrics.ascent - metrics.descent) / 2f;
+        canvas.drawText(wechat ? "微信乘车码" : "支付宝乘车码", layout.header().left(), baseline, paint);
+        paint.setColor(Color.WHITE);
+        float radius = Math.max(6, Math.min(24, Math.min(width, height) / 28f));
+        rounded(canvas, layout.card(), radius);
+        paint.setFilterBitmap(false);
+        paint.setDither(false);
+        paint.setColorFilter(null);
+        canvas.drawBitmap(qr, null, rect(layout.qr()), paint);
+        canvas.restore();
+    }
+
     private void rounded(Canvas canvas, PaymentLayout.Box box, float radius) {
         canvas.drawRoundRect(box.left(), box.top(), box.right(), box.bottom(), radius, radius, paint);
     }

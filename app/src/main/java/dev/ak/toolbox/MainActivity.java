@@ -105,10 +105,11 @@ public final class MainActivity extends Activity {
         screenTime.addView(screenTimeEntry, spaced(14, 0, 14, 14));
         body.addView(screenTime, spaced(0, 0, 0, 22));
 
-        section("背屏付款码");
+        section("背屏功能");
         LinearLayout payment = card();
         option(payment, Options.REAR_PAYMENT, "打开微信或支付宝付款码时显示二维码和条形码，退出后自动隐藏");
-        TextView paymentHelp = text("在 LSPosed 勾选背屏、微信和支付宝，并重启相关应用。付款码只在本机显示，不保存图片；无需设置工具箱后台无限制。", 12, muted);
+        option(payment, Options.REAR_TRANSIT, "打开微信或支付宝乘车码时显示居中大二维码，退出后自动隐藏");
+        TextView paymentHelp = text("在 LSPosed 勾选背屏、微信和支付宝，并重启相关应用。码图只在本机显示，不保存图片；无需设置工具箱后台无限制。", 12, muted);
         paymentHelp.setLineSpacing(dp(3), 1f);
         payment.addView(paymentHelp, spaced(18, 0, 18, 6));
         paymentStatus = text("", 12, muted);

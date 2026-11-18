@@ -114,6 +114,10 @@ public final class PaymentCodeChecks {
             if (other == null || other.card().right() > size[0] || other.card().bottom() > size[1]
                     || other.barcode().bottom() > other.qr().top() || other.qr().bottom() > other.card().bottom())
                 throw new AssertionError("尺寸 " + size[0] + "x" + size[1] + " 布局越界");
+            PaymentLayout.Layout transit = PaymentLayout.calculateTransit(size[0], size[1]);
+            if (transit == null || transit.card().right() > size[0] || transit.card().bottom() > size[1]
+                    || transit.qr().bottom() > transit.card().bottom() || transit.qr().right() > transit.card().right())
+                throw new AssertionError("乘车码尺寸 " + size[0] + "x" + size[1] + " 布局越界");
         }
         Arrays.fill(pixels, 0xffffffff);
         draw(pixels, w, writer.encode("synthetic-qr-only", BarcodeFormat.QR_CODE, 360, 360), 180, 300);

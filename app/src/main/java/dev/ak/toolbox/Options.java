@@ -16,6 +16,7 @@ public final class Options {
     public static final String THIRD_PARTY_IME = "ak_toolbox_third_party_ime";
     public static final String IME_SWITCH_LIST = "ak_toolbox_ime_switch_list";
     public static final String REAR_PAYMENT = "ak_toolbox_rear_payment";
+    public static final String REAR_TRANSIT = "ak_toolbox_rear_transit";
     public static final Map<String, String> LABELS;
     static {
         LinkedHashMap<String, String> names = new LinkedHashMap<>();
@@ -28,11 +29,15 @@ public final class Options {
         names.put(THIRD_PARTY_IME, "第三方输入法全面屏优化");
         names.put(IME_SWITCH_LIST, "底部栏显示所有已启用输入法");
         names.put(REAR_PAYMENT, "付款码自动显示到背屏");
+        names.put(REAR_TRANSIT, "乘车码自动显示到背屏");
         LABELS = java.util.Collections.unmodifiableMap(names);
     }
     public static boolean enabled(Context context, String key) {
         if (context == null) return false;
-        try { return Settings.Secure.getInt(context.getContentResolver(), key, REAR_PAYMENT.equals(key) ? 0 : 1) != 0; }
+        try {
+            int defaultValue = (REAR_PAYMENT.equals(key) || REAR_TRANSIT.equals(key)) ? 0 : 1;
+            return Settings.Secure.getInt(context.getContentResolver(), key, defaultValue) != 0;
+        }
         catch (Throwable ignored) { return false; }
     }
 }
