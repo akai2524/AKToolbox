@@ -5,8 +5,11 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Insets;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -74,9 +77,25 @@ public final class ScreenTimeFilterActivity extends Activity {
             root.setPadding(dp(20) + bars.left, dp(16) + bars.top, dp(20) + bars.right, dp(12) + bars.bottom);
             return insets;
         });
-        TextView title = text("屏幕时间隐藏", 28, ink);
+        LinearLayout navBar = new LinearLayout(this);
+        navBar.setOrientation(LinearLayout.HORIZONTAL);
+        navBar.setGravity(Gravity.CENTER_VERTICAL);
+
+        BackButton backBtn = new BackButton(this);
+        LinearLayout.LayoutParams backParams = new LinearLayout.LayoutParams(dp(36), dp(36));
+        backParams.gravity = Gravity.CENTER_VERTICAL;
+        backParams.rightMargin = dp(12);
+        backBtn.setOnClickListener(v -> finish());
+        navBar.addView(backBtn, backParams);
+
+        TextView title = text("屏幕时间隐藏", 26, ink);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        root.addView(title, margin(0, 0, 0, 6));
+        title.setIncludeFontPadding(false);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, -2, 1);
+        titleParams.gravity = Gravity.CENTER_VERTICAL;
+        navBar.addView(title, titleParams);
+
+        root.addView(navBar, margin(0, 0, 0, 6));
         TextView help = text("选择不在小米屏幕时间中显示的应用。系统仍会记录使用时间。", 13, muted);
         help.setLineSpacing(dp(3), 1f);
         root.addView(help, margin(0, 0, 0, 12));
@@ -145,13 +164,6 @@ public final class ScreenTimeFilterActivity extends Activity {
         empty.setBackground(round(surface, 20));
         root.addView(empty, new LinearLayout.LayoutParams(-1, 0, 1));
         list.setEmptyView(empty);
-        Button back = new Button(this);
-        back.setText("返回");
-        back.setTextColor(accent);
-        back.setAllCaps(false);
-        back.setBackgroundTintList(ColorStateList.valueOf(soft));
-        back.setOnClickListener(v -> finish());
-        root.addView(back, margin(0, 10, 0, 0));
         loadApps();
     }
 
@@ -286,4 +298,41 @@ public final class ScreenTimeFilterActivity extends Activity {
     private int dp(float value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private void toast(String value) { Toast.makeText(this, value, Toast.LENGTH_LONG).show(); }
     @Override protected void onDestroy() { loader.shutdownNow(); super.onDestroy(); }
+
+    private final class BackButton extends View {
+        private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint arrowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path path = new Path();
+
+        BackButton(Activity context) {
+            super(context);
+            bgPaint.setColor(soft);
+            bgPaint.setStyle(Paint.Style.FILL);
+            arrowPaint.setColor(accent);
+            arrowPaint.setStyle(Paint.Style.STROKE);
+            arrowPaint.setStrokeWidth(dp(2.2f));
+            arrowPaint.setStrokeCap(Paint.Cap.ROUND);
+            arrowPaint.setStrokeJoin(Paint.Join.ROUND);
+            setClickable(true);
+            setFocusable(true);
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float w = getWidth(), h = getHeight();
+            if (w <= 0 || h <= 0) return;
+            float r = Math.min(w, h) / 2f;
+            canvas.drawCircle(w / 2f, h / 2f, r, bgPaint);
+
+            float cx = w / 2f;
+            float cy = h / 2f;
+            float arrowW = dp(4f);
+            float arrowH = dp(6.5f);
+            path.reset();
+            path.moveTo(cx + arrowW * 0.5f, cy - arrowH);
+            path.lineTo(cx - arrowW * 0.5f, cy);
+            path.lineTo(cx + arrowW * 0.5f, cy + arrowH);
+            canvas.drawPath(path, arrowPaint);
+        }
+    }
 }

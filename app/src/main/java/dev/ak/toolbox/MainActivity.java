@@ -3,9 +3,10 @@ package dev.ak.toolbox;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Insets;
@@ -31,126 +32,122 @@ import java.util.concurrent.Executors;
 import dev.ak.toolbox.core.RootAccessCheck;
 
 public final class MainActivity extends Activity {
+    private static final String PREFS_NAME = "ak_toolbox_ui_prefs";
+    private static final String PREF_GOOGLE_TILE = "google_tile_enabled";
     private static final ExecutorService ROOT_CHECK = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "AK-root-check"); t.setDaemon(true); return t;
     });
-    private int background, surface, ink, muted, accent, soft;
+
+    private int background, surface, ink, muted, accent, soft, divider, greenDot;
     private LinearLayout body;
-    private TextView connection, rootStatus, state, explanation, message, paymentStatus;
-    private Button toggle, restart, paymentRetry;
+    private TextView statusBadgeText, screenTimeCountText;
+    private View statusDot;
+    private Switch googleTileSwitch, hideLauncher;
     private final Map<String, Switch> options = new HashMap<>();
     private boolean rendering, connected, busy, restarting, paymentBusy;
     private boolean legacyRestoreAttempted;
     private boolean rootNoticeOpen, rootReady;
-    private Switch hideLauncher;
     private boolean updatingLauncher;
     private int rootCheckSequence;
-    @Override public void onCreate(Bundle saved) {
-        super.onCreate(saved);
+
+    @Override public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
         boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
             == Configuration.UI_MODE_NIGHT_YES;
-        background = Color.parseColor(dark ? "#111318" : "#F5F6F8");
-        surface = Color.parseColor(dark ? "#1C1F25" : "#FFFFFF");
-        ink = Color.parseColor(dark ? "#F1F3F8" : "#17191E");
-        muted = Color.parseColor(dark ? "#A4ACBA" : "#717785");
-        accent = Color.parseColor(dark ? "#91ADFF" : "#3868E8");
-        soft = Color.parseColor(dark ? "#26314C" : "#EAF0FF");
+
+        background = Color.parseColor(dark ? "#000000" : "#F2F2F7");
+        surface = Color.parseColor(dark ? "#1C1C1E" : "#FFFFFF");
+        ink = Color.parseColor(dark ? "#FFFFFF" : "#000000");
+        muted = Color.parseColor(dark ? "#8E8E93" : "#8E8E93");
+        accent = Color.parseColor(dark ? "#0A84FF" : "#007AFF");
+        soft = Color.parseColor(dark ? "#2C2C2E" : "#E5E5EA");
+        divider = Color.parseColor(dark ? "#2C2C2E" : "#E5E5EA");
+        greenDot = Color.parseColor(dark ? "#30D158" : "#34C759");
+
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(background);
         scroll.setClipToPadding(false);
+
         body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(dp(20), dp(20), dp(20), dp(28));
+        body.setPadding(dp(16), dp(16), dp(16), dp(32));
         scroll.addView(body, new ScrollView.LayoutParams(-1, -2));
         setContentView(scroll);
+
         scroll.setOnApplyWindowInsetsListener((v, insets) -> {
             Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-            body.setPadding(dp(20) + bars.left, bars.top + dp(18), dp(20) + bars.right, bars.bottom + dp(28));
+            body.setPadding(dp(16) + bars.left, bars.top + dp(14), dp(16) + bars.right, bars.bottom + dp(32));
             return insets;
         });
-        TextView title = text("AK工具箱", 30, ink);
-        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        body.addView(title);
-        body.addView(text(getDeviceModel() + " · " + getOsVersion(), 14, muted), spaced(0, 5, 0, 18));
-        connection = text("正在检查模块连接", 13, accent);
-        connection.setPadding(dp(14), dp(10), dp(14), dp(10));
-        connection.setBackground(round(soft, 16));
-        connection.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        body.addView(connection, spaced(0, 0, 0, 16));
-        rootStatus = text("Root 权限：正在检查", 13, muted);
-        rootStatus.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        body.addView(rootStatus, spaced(4, 0, 4, 16));
 
-        LinearLayout gapps = card();
-        gapps.addView(text("Google服务", 25, ink), spaced(18, 17, 18, 3));
-        state = text("正在读取状态", 16, accent);
-        gapps.addView(state, spaced(18, 0, 18, 7));
-        explanation = text("关闭核心 Google 服务与商店，开启时恢复原状态。", 13, muted);
-        gapps.addView(explanation, spaced(18, 0, 18, 12));
-        toggle = button("切换 Google服务", true);
-        toggle.setEnabled(false);
-        toggle.setOnClickListener(v -> toggleGapps());
-        gapps.addView(toggle, spaced(14, 0, 14, 4));
-        Button tile = button("添加Google服务磁贴", false);
-        tile.setOnClickListener(v -> addGoogleTile());
-        gapps.addView(tile, spaced(14, 0, 14, 12));
-        body.addView(gapps, spaced(0, 0, 0, 22));
+        setupHeader();
 
-        section("屏幕时间");
-        LinearLayout screenTime = card();
-        screenTime.addView(text("隐藏指定应用", 19, ink), spaced(18, 16, 18, 4));
-        screenTime.addView(text("选择不在小米屏幕时间中显示的应用。", 13, muted), spaced(18, 0, 18, 10));
-        Button screenTimeEntry = button("选择应用", false);
-        screenTimeEntry.setOnClickListener(v -> startActivity(new Intent(this, ScreenTimeFilterActivity.class)));
-        screenTime.addView(screenTimeEntry, spaced(14, 0, 14, 14));
-        body.addView(screenTime, spaced(0, 0, 0, 22));
+        // 1. 系统与服务
+        section("系统与服务");
+        LinearLayout systemCard = card();
+        googleTileSwitch = switchRow(systemCard, "Google 服务磁贴", isGoogleTileEnabled(), (v, checked) -> {
+            if (rendering) return;
+            setGoogleTileEnabled(checked);
+            if (checked) {
+                addGoogleTile();
+            }
+        });
+        addDivider(systemCard);
+        screenTimeCountText = arrowRow(systemCard, "隐藏屏幕时间应用", "", v ->
+            startActivity(new Intent(this, ScreenTimeFilterActivity.class)));
+        body.addView(systemCard, spaced(0, 0, 0, 18));
 
-        section("背屏功能");
-        LinearLayout payment = card();
-        option(payment, Options.REAR_PAYMENT, "打开微信或支付宝付款码时显示二维码和条形码，退出后自动隐藏");
-        option(payment, Options.REAR_TRANSIT, "打开微信或支付宝乘车码时显示居中大二维码，退出后自动隐藏");
-        TextView paymentHelp = text("在 LSPosed 勾选背屏、微信和支付宝，并重启相关应用。码图只在本机显示，不保存图片；无需设置工具箱后台无限制。", 12, muted);
-        paymentHelp.setLineSpacing(dp(3), 1f);
-        payment.addView(paymentHelp, spaced(18, 0, 18, 6));
-        paymentStatus = text("", 12, muted);
-        paymentStatus.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        payment.addView(paymentStatus, spaced(18, 0, 18, 6));
-        paymentRetry = button("重试恢复旧版后台设置", false);
-        paymentRetry.setEnabled(false);
-        paymentRetry.setOnClickListener(v -> restoreLegacyPaymentPolicy());
-        payment.addView(paymentRetry, spaced(14, 0, 14, 4));
-        updateLegacyPolicyVisibility();
-        body.addView(payment, spaced(0, 0, 0, 22));
+        // 2. 背屏显示
+        section("背屏显示");
+        LinearLayout rearCard = card();
+        option(rearCard, Options.REAR_PAYMENT, "付款码自动投送");
+        addDivider(rearCard);
+        option(rearCard, Options.REAR_TRANSIT, "乘车码自动投送");
+        body.addView(rearCard, spaced(0, 0, 0, 18));
 
-        section("输入法");
-        LinearLayout inputMethods = card();
-        option(inputMethods, Options.THIRD_PARTY_IME, "在 LSPosed 勾选对应输入法，更改后重启输入法生效");
-        option(inputMethods, Options.IME_SWITCH_LIST, "在 LSPosed 勾选使用底部栏的输入法，更改后重启输入法生效");
-        body.addView(inputMethods, spaced(0, 0, 0, 22));
+        // 3. 界面交互
+        section("界面交互");
+        LinearLayout uiCard = card();
+        // 第三方输入法全面屏优化（底部切换栏开关跟随本选项并隐藏）
+        Switch imeSwitch = switchRow(uiCard, "第三方输入法全面屏优化", Options.enabled(this, Options.THIRD_PARTY_IME), (v, checked) -> {
+            if (rendering || !connected) return;
+            BridgeClient.send(this, BridgeClient.SET_OPTION,
+                new Intent().putExtra("key", Options.THIRD_PARTY_IME).putExtra("value", checked), this::showResult);
+            BridgeClient.send(this, BridgeClient.SET_OPTION,
+                new Intent().putExtra("key", Options.IME_SWITCH_LIST).putExtra("value", checked), null);
+        });
+        options.put(Options.THIRD_PARTY_IME, imeSwitch);
+        imeSwitch.setEnabled(false);
+        addDivider(uiCard);
 
-        section("音效");
-        LinearLayout sound = card();
-        option(sound, Options.HEADSET_SOUND, "连接耳机切换原声，全部断开后切换杜比全景声");
-        body.addView(sound, spaced(0, 0, 0, 22));
+        option(uiCard, Options.HEADSET_SOUND, "耳机音效自动切换");
+        addDivider(uiCard);
+        option(uiCard, Options.COPY, "截图自动复制");
+        addDivider(uiCard);
+        option(uiCard, Options.HIDE_STATUS, "截图隐藏状态栏");
+        addDivider(uiCard);
 
-        section("截屏");
-        LinearLayout screenshots = card();
-        option(screenshots, Options.COPY, "普通截图与长截图均复制图片，保留相册文件");
-        option(screenshots, Options.HIDE_STATUS, "隐藏时间、信号等内容，保留原图尺寸与顶部背景");
-        body.addView(screenshots, spaced(0, 0, 0, 22));
+        // 通知中心天气（天气跟随城市默认开启并隐藏独立选项）
+        Switch weatherSwitch = switchRow(uiCard, "通知中心天气", Options.enabled(this, Options.WEATHER), (v, checked) -> {
+            if (rendering || !connected) return;
+            BridgeClient.send(this, BridgeClient.SET_OPTION,
+                new Intent().putExtra("key", Options.WEATHER).putExtra("value", checked), this::showResult);
+            if (checked) {
+                BridgeClient.send(this, BridgeClient.SET_OPTION,
+                    new Intent().putExtra("key", Options.CITY).putExtra("value", true), null);
+            }
+        });
+        options.put(Options.WEATHER, weatherSwitch);
+        weatherSwitch.setEnabled(false);
+        addDivider(uiCard);
 
-        section("通知与控制中心");
-        LinearLayout notifications = card();
-        option(notifications, Options.WEATHER, "仅在通知中心日期旁显示，数据来自小米天气");
-        option(notifications, Options.CITY, "跟随小米天气当前城市");
-        option(notifications, Options.HIDE_EDIT, "隐藏控制中心编辑按钮");
-        body.addView(notifications, spaced(0, 0, 0, 14));
+        option(uiCard, Options.HIDE_EDIT, "隐藏控制中心编辑按钮");
+        body.addView(uiCard, spaced(0, 0, 0, 18));
 
-        section("工具箱设置");
-        LinearLayout toolboxSettings = card();
-        hideLauncher = row(toolboxSettings, "隐藏桌面图标",
-            "隐藏后可从 LSPosed 的模块页面打开工具箱，并在此恢复图标", isLauncherHidden());
-        hideLauncher.setOnCheckedChangeListener((view, checked) -> {
+        // 4. 管理
+        section("管理");
+        LinearLayout manageCard = card();
+        hideLauncher = switchRow(manageCard, "隐藏桌面图标", isLauncherHidden(), (v, checked) -> {
             if (updatingLauncher) return;
             try {
                 getPackageManager().setComponentEnabledSetting(launcherComponent(),
@@ -164,26 +161,59 @@ public final class MainActivity extends Activity {
                 toast("无法修改桌面图标状态，请重试");
             }
         });
-        body.addView(toolboxSettings, spaced(0, 0, 0, 14));
-
-        restart = button("重启系统界面", false);
-        restart.setEnabled(false);
-        restart.setOnClickListener(v -> restartSystemUi());
-        body.addView(restart, spaced(0, 0, 0, 10));
-
-        message = text("", 13, muted);
-        message.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        body.addView(message, spaced(4, 0, 4, 8));
-        Button manager = button("打开 LSPosed", false);
-        manager.setOnClickListener(v -> openManager());
-        body.addView(manager, spaced(0, 0, 0, 12));
-        Button rootManager = button("打开 Root 管理器", false);
-        rootManager.setOnClickListener(v -> openRootManager());
-        body.addView(rootManager, spaced(0, 0, 0, 12));
-        TextView footer = text("首次启用或修改作用域后需重启手机。卸载前可先开启 Google服务，恢复核心服务原状态。", 12, muted);
-        footer.setLineSpacing(dp(4), 1f);
-        body.addView(footer, spaced(4, 0, 4, 0));
+        addDivider(manageCard);
+        arrowRow(manageCard, "重启系统界面", "", v -> restartSystemUi());
+        addDivider(manageCard);
+        arrowRow(manageCard, "LSPosed 模块管理器", "", v -> openManager());
+        addDivider(manageCard);
+        arrowRow(manageCard, "Root 管理器", "", v -> openRootManager());
+        body.addView(manageCard, spaced(0, 0, 0, 18));
     }
+
+    private void setupHeader() {
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(4), dp(10), dp(4), dp(16));
+
+        LinearLayout titles = new LinearLayout(this);
+        titles.setOrientation(LinearLayout.VERTICAL);
+        TextView title = text("AK工具箱", 28, ink);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        titles.addView(title);
+
+        TextView subtitle = text(getDeviceModel() + " · " + getOsVersion(), 13, muted);
+        titles.addView(subtitle, spaced(0, 3, 0, 0));
+        header.addView(titles, new LinearLayout.LayoutParams(0, -2, 1));
+
+        LinearLayout badge = new LinearLayout(this);
+        badge.setOrientation(LinearLayout.HORIZONTAL);
+        badge.setGravity(Gravity.CENTER_VERTICAL);
+        badge.setPadding(dp(10), dp(5), dp(12), dp(5));
+        badge.setBackground(round(soft, 14));
+
+        statusDot = new View(this);
+        statusDot.setBackground(round(muted, 4));
+        LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(dp(7), dp(7));
+        dotParams.rightMargin = dp(6);
+        badge.addView(statusDot, dotParams);
+
+        statusBadgeText = text("检查中", 12, muted);
+        statusBadgeText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        badge.addView(statusBadgeText);
+
+        header.addView(badge);
+        body.addView(header);
+    }
+
+    private boolean isGoogleTileEnabled() {
+        return getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getBoolean(PREF_GOOGLE_TILE, false);
+    }
+
+    private void setGoogleTileEnabled(boolean enabled) {
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean(PREF_GOOGLE_TILE, enabled).apply();
+    }
+
     @Override protected void onResume() {
         super.onResume();
         if (hideLauncher != null) {
@@ -191,117 +221,100 @@ public final class MainActivity extends Activity {
             hideLauncher.setChecked(isLauncherHidden());
             updatingLauncher = false;
         }
+        updateScreenTimeCount();
         checkRootAccess();
         if (!restarting) BridgeClient.send(this, BridgeClient.QUERY, null, this::showResult);
     }
+
+    private void updateScreenTimeCount() {
+        if (screenTimeCountText == null) return;
+        try {
+            int count = ScreenTimeFilterProvider.selected(this).size();
+            screenTimeCountText.setText(count > 0 ? count + " 个应用" : "");
+        } catch (Throwable ignored) {
+            screenTimeCountText.setText("");
+        }
+    }
+
     private ComponentName launcherComponent() {
         return new ComponentName(this, getPackageName() + ".LauncherActivity");
     }
+
     private boolean isLauncherHidden() {
         return getPackageManager().getComponentEnabledSetting(launcherComponent())
             == PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
     }
+
     private void checkRootAccess() {
         int request = ++rootCheckSequence;
         rootReady = false;
-        rootStatus.setText("Root 权限：正在检查");
         ROOT_CHECK.execute(() -> {
             RootAccessCheck.Result result = RootAccessCheck.check(new String[] { "su", "-c", "id -u" }, 4000);
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed() || request != rootCheckSequence) return;
                 rootReady = result == RootAccessCheck.Result.GRANTED;
-                rootStatus.setText(switch (result) {
-                    case GRANTED -> "Root 权限：已授权";
-                    case NOT_GRANTED -> "Root 权限：未授权";
-                    case UNKNOWN -> "Root 权限：暂时无法确认，请在 Root 管理器中检查";
-                });
                 if (result == RootAccessCheck.Result.NOT_GRANTED && !rootNoticeOpen) showRootReminder();
                 if (rootReady && !legacyRestoreAttempted && BackgroundPolicy.hasPendingRestore(this)) {
                     legacyRestoreAttempted = true;
-                    restoreLegacyPaymentPolicy();
+                    BackgroundPolicy.change(this, false, res -> {});
                 }
             });
         });
     }
-    private void option(LinearLayout group, String key, String description) {
-        Switch control = row(group, Options.LABELS.get(key), description, Options.enabled(this, key));
-        options.put(key, control);
-        control.setEnabled(false);
-        control.setOnCheckedChangeListener((v, checked) -> {
+
+    private void option(LinearLayout group, String key, String label) {
+        Switch control = switchRow(group, label, Options.enabled(this, key), (v, checked) -> {
             if (rendering || !connected) return;
             BridgeClient.send(this, BridgeClient.SET_OPTION,
                 new Intent().putExtra("key", key).putExtra("value", checked), this::showResult);
         });
+        options.put(key, control);
+        control.setEnabled(false);
     }
+
     private void showResult(Intent result) {
         if (isFinishing() || isDestroyed()) return;
         connected = result.getBooleanExtra("connected", false);
-        connection.setText(connected ? "模块已连接" : "模块未连接");
-        String value = result.getStringExtra("state");
-        state.setText(!connected ? "等待模块连接" : switch (value == null ? "" : value) {
-            case "ON" -> "Google服务已开启";
-            case "OFF" -> "Google服务已关闭";
-            case "PARTIAL" -> "部分 Google 组件已停用";
-            default -> "缺少 Google 核心组件";
-        });
-        toggle.setText("OFF".equals(value) ? "开启 Google服务" : "关闭 Google服务");
-        toggle.setEnabled(connected && !busy && !restarting && !"MISSING".equals(value));
-        restart.setEnabled(connected && !busy && !restarting);
-        explanation.setText("OFF".equals(value) ? "核心服务已停用。再次开启时恢复先前记录的启用状态。"
-            : "关闭核心 Google 服务与商店，开启时恢复原状态。");
+        if (connected) {
+            statusDot.setBackground(round(greenDot, 4));
+            statusBadgeText.setText("已激活");
+            statusBadgeText.setTextColor(greenDot);
+        } else {
+            statusDot.setBackground(round(muted, 4));
+            statusBadgeText.setText("未连接");
+            statusBadgeText.setTextColor(muted);
+        }
+
         rendering = true;
+        if (googleTileSwitch != null) {
+            googleTileSwitch.setEnabled(connected && !restarting);
+        }
+
         for (Map.Entry<String, Switch> entry : options.entrySet()) {
             entry.getValue().setEnabled(connected && !restarting && !(paymentBusy && Options.REAR_PAYMENT.equals(entry.getKey())));
             if (connected) entry.getValue().setChecked(result.getBooleanExtra(entry.getKey(), !Options.REAR_PAYMENT.equals(entry.getKey())));
         }
-        options.get(Options.CITY).setEnabled(connected && !restarting && options.get(Options.WEATHER).isChecked());
-        paymentRetry.setEnabled(rootReady && !paymentBusy);
         rendering = false;
+
         String error = result.getStringExtra("error");
-        message.setText(error != null ? error : "设置已同步。界面设置若未更新，可点击重启系统界面。");
+        if (error != null) toast(error);
     }
-    private void restoreLegacyPaymentPolicy() {
-        if (!rootReady || paymentBusy || !BackgroundPolicy.hasPendingRestore(this)) return;
-        paymentBusy = true;
-        paymentRetry.setEnabled(false);
-        paymentStatus.setText("正在恢复旧版修改的后台设置…");
-        BackgroundPolicy.change(this, false, this::finishPaymentPolicy);
-    }
-    private void finishPaymentPolicy(dev.ak.toolbox.core.BackgroundPolicyController.Result result) {
-        paymentBusy = false;
-        if (isFinishing() || isDestroyed()) return;
-        paymentStatus.setText(result.message());
-        updateLegacyPolicyVisibility();
-        paymentRetry.setEnabled(rootReady && !paymentBusy);
-    }
-    private void updateLegacyPolicyVisibility() {
-        int visibility = BackgroundPolicy.hasPendingRestore(this) ? View.VISIBLE : View.GONE;
-        paymentStatus.setVisibility(visibility);
-        paymentRetry.setVisibility(visibility);
-    }
-    private void toggleGapps() {
-        if (!connected || busy || restarting) return;
-        busy = true;
-        toggle.setEnabled(false);
-        restart.setEnabled(false);
-        BridgeClient.send(this, BridgeClient.TOGGLE, null, result -> {
-                busy = false; showResult(result);
-            });
-    }
+
     private void restartSystemUi() {
-        if (!connected || busy || restarting) return;
+        if (!connected || busy || restarting) {
+            toast("模块未连接，无法重启系统界面");
+            return;
+        }
         restarting = true;
-        restart.setEnabled(false);
-        toggle.setEnabled(false);
+        if (googleTileSwitch != null) googleTileSwitch.setEnabled(false);
         for (Switch option : options.values()) option.setEnabled(false);
+        toast("正在重启系统界面");
         BridgeClient.send(this, BridgeClient.RESTART_SYSTEM_UI, null, result -> {
             if (!result.getBooleanExtra("restarting", false) || result.hasExtra("error")) {
                 restarting = false;
                 showResult(result);
                 return;
             }
-            connection.setText("系统界面正在重启");
-            message.setText("屏幕会短暂刷新，重启后自动检查连接。");
             body.postDelayed(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 restarting = false;
@@ -309,53 +322,57 @@ public final class MainActivity extends Activity {
             }, 2000);
         });
     }
+
     private void addGoogleTile() {
         BridgeClient.send(this, BridgeClient.ADD_GOOGLE_TILE, null, result -> {
             if (isFinishing() || isDestroyed()) return;
             String error = result.getStringExtra("error");
             if (!result.getBooleanExtra("connected", false) || error != null) {
-                toast(error != null ? error : "模块未连接，无法添加 Google服务磁贴");
+                toast(error != null ? error : "模块未连接，无法添加 Google 服务磁贴");
+                if (googleTileSwitch != null) {
+                    rendering = true;
+                    googleTileSwitch.setChecked(false);
+                    setGoogleTileEnabled(false);
+                    rendering = false;
+                }
             } else {
-                toast("正在添加 Google服务磁贴");
+                toast("已添加 Google 服务磁贴至控制中心");
             }
         });
     }
+
     private void openManager() {
         Intent intent = getPackageManager().getLaunchIntentForPackage("org.lsposed.manager");
         if (intent == null) toast("请从 LSPosed 通知或桌面快捷方式打开管理器");
         else startActivity(intent);
     }
+
     private void showRootReminder() {
         rootNoticeOpen = true;
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(dp(22), dp(22), dp(22), dp(18));
-        panel.setBackground(round(surface, 24));
+        panel.setBackground(round(surface, 20));
 
-        TextView category = text("权限设置", 12, accent);
-        category.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        category.setPadding(dp(10), dp(4), dp(10), dp(4));
-        category.setBackground(round(soft, 9));
-        LinearLayout.LayoutParams categoryLayout = new LinearLayout.LayoutParams(-2, -2);
-        categoryLayout.bottomMargin = dp(10);
-        panel.addView(category, categoryLayout);
-        TextView title = text("请手动授予 Root 权限", 21, ink);
+        TextView title = text("请授予 Root 权限", 19, ink);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        panel.addView(title, spaced(0, 0, 0, 10));
-        TextView detail = text("部分工具操作及旧版后台设置恢复需要 Root。请在 KernelSU 或其他 Root 管理器的超级用户列表中，找到 AK工具箱并手动允许。", 14, muted);
-        detail.setLineSpacing(dp(3), 1f);
-        panel.addView(detail, spaced(0, 0, 0, 18));
+        panel.addView(title, spaced(0, 0, 0, 8));
+
+        TextView detail = text("部分高级操作需要 Root 授权。请在 KernelSU 或其他 Root 管理器中为 AK工具箱开启超级用户权限。", 13, muted);
+        detail.setLineSpacing(dp(2), 1f);
+        panel.addView(detail, spaced(0, 0, 0, 16));
 
         Button open = rootDialogButton("打开 Root 管理器", true);
         Button authorized = rootDialogButton("我已授权", false);
-        Button later = rootDialogButton("稍后设置", false);
-        panel.addView(open, spaced(0, 0, 0, 10));
+        Button later = rootDialogButton("稍后", false);
+        panel.addView(open, spaced(0, 0, 0, 8));
+
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, -2, 1);
-        left.rightMargin = dp(5);
+        left.rightMargin = dp(4);
         LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(0, -2, 1);
-        right.leftMargin = dp(5);
+        right.leftMargin = dp(4);
         actions.addView(authorized, left);
         actions.addView(later, right);
         panel.addView(actions, new LinearLayout.LayoutParams(-1, -2));
@@ -371,19 +388,25 @@ public final class MainActivity extends Activity {
         dialog.setOnShowListener(ignored -> {
             if (dialog.getWindow() == null) return;
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            int width = Math.min(getResources().getDisplayMetrics().widthPixels - dp(40), dp(420));
+            int width = Math.min(getResources().getDisplayMetrics().widthPixels - dp(32), dp(380));
             dialog.getWindow().setLayout(width, -2);
         });
         dialog.show();
     }
+
     private Button rootDialogButton(String label, boolean primary) {
-        Button control = button(label, primary);
-        control.setBackgroundTintList(null);
-        control.setBackground(round(primary ? accent : soft, 14));
+        Button control = new Button(this);
+        control.setText(label);
+        control.setTextSize(14);
+        control.setAllCaps(false);
+        control.setMinHeight(dp(44));
+        control.setTextColor(primary ? Color.WHITE : accent);
+        control.setBackground(round(primary ? accent : soft, 12));
         control.setStateListAnimator(null);
         control.setElevation(0);
         return control;
     }
+
     private boolean openRootManager() {
         for (String pkg : new String[] { "me.weishu.kernelsu", "com.topjohnwu.magisk", "me.bmax.apatch" }) {
             Intent intent = getPackageManager().getLaunchIntentForPackage(pkg);
@@ -391,52 +414,74 @@ public final class MainActivity extends Activity {
             try { startActivity(intent); return true; }
             catch (RuntimeException ignored) { }
         }
-        toast("未找到常见 Root 管理器，请手动打开你使用的 Root 管理器");
+        toast("未找到常见 Root 管理器");
         return false;
     }
+
     private void section(String title) {
-        TextView heading = text(title, 14, muted);
-        heading.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        body.addView(heading, spaced(4, 0, 4, 9));
+        TextView heading = text(title, 13, muted);
+        heading.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        body.addView(heading, spaced(6, 0, 6, 6));
     }
+
     private LinearLayout card() {
         LinearLayout view = new LinearLayout(this);
         view.setOrientation(LinearLayout.VERTICAL);
-        view.setBackground(round(surface, 23));
+        view.setBackground(round(surface, 18));
         return view;
     }
-    private Switch row(LinearLayout group, String title, String description, boolean checked) {
+
+    private Switch switchRow(LinearLayout group, String title, boolean checked, android.widget.CompoundButton.OnCheckedChangeListener listener) {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(18), dp(13), dp(18), dp(13));
-        row.setMinimumHeight(dp(76));
-        LinearLayout labels = new LinearLayout(this);
-        labels.setOrientation(LinearLayout.VERTICAL);
-        labels.addView(text(title, 16, ink));
-        TextView detail = text(description, 12, muted);
-        detail.setLineSpacing(dp(2), 1f);
-        labels.addView(detail, spaced(0, 4, 10, 0));
-        row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
+        row.setPadding(dp(16), dp(11), dp(16), dp(11));
+        row.setMinimumHeight(dp(54));
+
+        TextView label = text(title, 16, ink);
+        row.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
+
         Switch control = new Switch(this);
-        control.setContentDescription(title + "，" + description);
         control.setChecked(checked);
         control.setShowText(false);
-        control.setMinimumHeight(dp(48));
+        if (listener != null) control.setOnCheckedChangeListener(listener);
         row.addView(control);
+
         row.setOnClickListener(v -> { if (control.isEnabled()) control.setChecked(!control.isChecked()); });
         group.addView(row, new LinearLayout.LayoutParams(-1, -2));
         return control;
     }
-    private Button button(String text, boolean primary) {
-        Button button = new Button(this);
-        button.setText(text);
-        button.setTextSize(14);
-        button.setAllCaps(false);
-        button.setMinHeight(dp(48));
-        button.setTextColor(primary ? background : accent);
-        button.setBackgroundTintList(ColorStateList.valueOf(primary ? accent : soft));
-        return button;
+
+    private TextView arrowRow(LinearLayout group, String title, String value, View.OnClickListener onClick) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(16), dp(11), dp(16), dp(11));
+        row.setMinimumHeight(dp(54));
+
+        TextView label = text(title, 16, ink);
+        row.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView valueView = text(value, 14, muted);
+        valueView.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        row.addView(valueView, new LinearLayout.LayoutParams(-2, -2));
+
+        TextView arrow = text("›", 18, muted);
+        arrow.setPadding(dp(6), 0, 0, dp(1));
+        row.addView(arrow, new LinearLayout.LayoutParams(-2, -2));
+
+        if (onClick != null) row.setOnClickListener(onClick);
+        group.addView(row, new LinearLayout.LayoutParams(-1, -2));
+        return valueView;
     }
+
+    private void addDivider(LinearLayout group) {
+        View line = new View(this);
+        line.setBackgroundColor(divider);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, 1);
+        params.leftMargin = dp(16);
+        params.rightMargin = dp(16);
+        group.addView(line, params);
+    }
+
     private TextView text(String value, float size, int color) {
         TextView view = new TextView(this);
         view.setText(value);
@@ -444,19 +489,22 @@ public final class MainActivity extends Activity {
         view.setTextColor(color);
         return view;
     }
+
     private GradientDrawable round(int color, int radius) {
         GradientDrawable shape = new GradientDrawable();
         shape.setColor(color);
         shape.setCornerRadius(dp(radius));
         return shape;
     }
+
     private LinearLayout.LayoutParams spaced(int left, int top, int right, int bottom) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.setMargins(dp(left), dp(top), dp(right), dp(bottom));
         return params;
     }
+
     private int dp(float value) { return Math.round(value * getResources().getDisplayMetrics().density); }
-    private void toast(String value) { Toast.makeText(this, value, Toast.LENGTH_LONG).show(); }
+    private void toast(String value) { Toast.makeText(this, value, Toast.LENGTH_SHORT).show(); }
 
     private static String getDeviceModel() {
         String market = getProp("ro.product.marketname");
